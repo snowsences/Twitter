@@ -1,0 +1,11 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {filterMuted,muteMatches,validateMuteRule} from '../docs/core.mjs';
+const p=(text,profile_handle='alice',type='post',quote='')=>({key:profile_handle+':1',text,profile_handle,type,author:{handle:type==='retweet'?'bob':profile_handle},quoted_post:quote?{text:quote}:null});
+const rule=(term,handles=[])=>({id:'1',term,handles});
+test('global mute is case-insensitive and applies to all profiles',()=>{assert.equal(filterMuted([p('Some POLITICS here'),p('politics again','bob')],[rule('politics')]).length,0);});
+test('whole-word matching does not hide substrings',()=>{assert.equal(muteMatches(p('Catch the train'),rule('cat')),false);assert.equal(muteMatches(p('The cat!'),rule('cat')),true);assert.equal(muteMatches(p('#cat'),rule('cat')),true);});
+test('phrases support whitespace and literal punctuation',()=>{assert.equal(muteMatches(p('Here is climate\nchange.'),rule('climate change')),true);assert.equal(muteMatches(p('C++ is here'),rule('C++')),true);assert.equal(muteMatches(p('hello.'),rule('.*')),false);});
+test('selected-profile mute does not apply to other profiles',()=>{assert.equal(filterMuted([p('politics','alice'),p('politics','bob')],[rule('politics',['alice'])]).length,1);});
+test('repost scope is the reposter, not the original author',()=>{const post=p('politics','alice','retweet');assert.equal(muteMatches(post,rule('politics',['alice'])),true);assert.equal(muteMatches(post,rule('politics',['bob'])),false);});
+test('quoted text is muted as part of the containing post',()=>{assert.equal(muteMatches(p('Thoughts','alice','post','politics'),rule('politics')),true);});
+test('removing or editing a mute restores visible content without changing records',()=>{const posts=[p('politics')];assert.equal(filterMuted(posts,[rule('politics')]).length,0);assert.equal(filterMuted(posts,[]).length,1);assert.equal(filterMuted(posts,[rule('sports')]).length,1);assert.equal(posts[0].text,'politics');});
+test('invalid rules are rejected and scope handles deduplicated',()=>{assert.throws(()=>validateMuteRule(rule(' ')));assert.throws(()=>validateMuteRule(rule('x',['not a handle'])));assert.deepEqual(validateMuteRule(rule(' term ',['alice','alice'])),{id:'1',term:'term',handles:['alice']});});

@@ -1,0 +1,37 @@
+import 'fake-indexeddb/auto';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {parseHTML} from 'linkedom';
+import * as DB from '../docs/db.mjs';
+import {normalizeArchive,newClock} from '../docs/core.mjs';
+test('live UI scopes, edits and removes mute rules; reset requires exact confirmation',async()=>{
+  const {document,window:dom}=parseHTML(await readFile(new URL('../docs/index.html',import.meta.url),'utf8'));
+  const proto=Object.getPrototypeOf(document.createElement('select'));
+  Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.querySelectorAll('option')].find(o=>o.selected)?.value||this.querySelector('option')?.value||'';},set(value){for(const option of this.querySelectorAll('option'))option.selected=option.value===String(value);}});
+  const modal=document.getElementById('modal');modal.showModal=()=>modal.setAttribute('open','');modal.close=()=>{modal.removeAttribute('open');modal.dispatchEvent(new dom.Event('close'));};
+  globalThis.document=document;globalThis.location={hash:'#home'};globalThis.window={scrollTo(){},addEventListener(){},scrollY:0};
+  Object.defineProperty(globalThis,'navigator',{configurable:true,value:{onLine:true}});globalThis.requestAnimationFrame=fn=>fn();
+  const interval=globalThis.setInterval,timeout=globalThis.setTimeout;
+  globalThis.setInterval=()=>0;globalThis.setTimeout=(fn,ms)=>{const timer=timeout(fn,ms);timer.unref();return timer;};
+  try{
+    const archives=['alice','bob'].map(handle=>normalizeArchive({schema:'x-profile-archive',schema_version:1,profile:{handle},posts:[{id:'1',text:'Politics today',created_at:'2010-01-01T10:00:00Z',author:{handle,display_name:handle},media:[]}]},'UTC'));
+    await DB.write({profiles:archives.map(a=>a.profile),posts:archives.flatMap(a=>a.posts),state:{clock:newClock(Date.now()-1000,'UTC'),timezone:'UTC',bookmarks:[],muted_terms:[]}});
+    await import('../docs/app.mjs');
+    const btn=text=>[...document.querySelectorAll('button')].find(b=>b.textContent===text);
+    const nav=name=>[...document.querySelectorAll('#desktop-nav button')].find(b=>b.textContent===name).onclick();
+    const count=()=>document.querySelectorAll('article.tweet').length;
+    const submit=async()=>{const form=modal.querySelector('form');await form.onsubmit({preventDefault(){}});};
+    assert.equal(count(),2);nav('Settings');btn('Add muted term').onclick();modal.querySelector('input.field').value='politics';
+    const scope=modal.querySelector('select');scope.value='selected';scope.onchange();await submit();assert.match(modal.textContent,/Choose at least one profile/);
+    modal.querySelector('.mute-profile input').checked=true;await submit();assert.equal(modal.hasAttribute('open'),false);
+    assert.deepEqual((await DB.load()).state.muted_terms[0].handles,['alice']);nav('Home');assert.equal(count(),1);assert.equal(document.querySelector('article').dataset.key,'bob:1');
+    nav('Search');assert.equal(count(),1);nav('Profiles');assert.match(document.getElementById('content').textContent,/0 posts available/);
+    nav('Settings');btn('Edit').onclick();modal.querySelector('select').value='everyone';await submit();nav('Home');assert.equal(count(),0);
+    nav('Settings');await btn('Remove').onclick();nav('Home');assert.equal(count(),2);
+    const bookmark=document.querySelector('.bookmark');await bookmark.onclick();assert.equal((await DB.load()).state.bookmarks.length,1);
+    nav('Settings');const reset=btn('Reset playback…').onclick();const input=modal.querySelector('input'),confirm=btn('Confirm reset');
+    assert.equal(confirm.disabled,true);input.value='reset twitter';input.oninput();assert.equal(confirm.disabled,true);input.value='RESET TWITTER';input.oninput();assert.equal(confirm.disabled,false);
+    btn('Cancel').onclick();await reset;assert.equal((await DB.load()).state.muted_terms.length,0);
+  }finally{globalThis.setInterval=interval;globalThis.setTimeout=timeout;}
+});

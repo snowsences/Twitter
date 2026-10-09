@@ -1,0 +1,1 @@
+{"name":"twitter-replay","version":"1.0.0","private":true,"type":"module","dependencies":{"fflate":"0.8.2"},"devDependencies":{"fake-indexeddb":"6.2.4","linkedom":"0.18.12"},"scripts":{"test":"node --test tests/*.test.mjs"}}
