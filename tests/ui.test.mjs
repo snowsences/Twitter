@@ -37,11 +37,12 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     cancel=false;btn('Share image').onclick();await new Promise(resolve=>setImmediate(resolve));assert.equal(modal.open,false);
     delete navigator.canShare;delete navigator.share;
     await document.querySelector('.share-button').onclick();assert.match(modal.textContent,/can’t share image files directly/);assert.ok(btn('Save image'));modal.close();
+    nav('Profiles');assert.equal(document.querySelectorAll('.profile-replay progress').length,2);assert.match(document.getElementById('content').textContent,/Finished · Run 1/);const priorClock=(await DB.load()).state.clock;await btn('Restart @alice').onclick();assert.match(document.getElementById('content').textContent,/Run 2/);const afterRestart=(await DB.load()).state.clock;assert.equal(afterRestart.started_at,priorClock.started_at);assert.equal(afterRestart.restarts.alice.cycle,2);assert.equal(afterRestart.restarts.bob,undefined);nav('Home');
     nav('Settings');btn('Add muted term').onclick();modal.querySelector('input.field').value='politics';
     const scope=modal.querySelector('select');scope.value='selected';scope.onchange();await submit();assert.match(modal.textContent,/Choose at least one profile/);
     modal.querySelector('.mute-profile input').checked=true;await submit();assert.equal(modal.hasAttribute('open'),false);
     assert.deepEqual((await DB.load()).state.muted_terms[0].handles,['alice']);nav('Home');assert.equal(count(),1);assert.equal(document.querySelector('article').dataset.key,'bob:1');
-    nav('Search');assert.equal(count(),1);nav('Profiles');assert.match(document.getElementById('content').textContent,/0 posts available/);
+    nav('Search');assert.equal(count(),1);nav('Profiles');assert.match(document.getElementById('content').textContent,/1 \/ 1 posts played/);
     nav('Settings');btn('Edit').onclick();modal.querySelector('select').value='everyone';await submit();nav('Home');assert.equal(count(),0);
     nav('Settings');await btn('Remove').onclick();nav('Home');assert.equal(count(),2);
     const heart=document.querySelector('.like-button');const likedKey=document.querySelector('article').dataset.key;

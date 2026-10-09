@@ -24,8 +24,25 @@ export function replayDayFor(clock,sourceDay){
   const segment=[...clock.segments].reverse().find(s=>s.source_day<=sourceDay)||clock.segments[0];
   return Math.floor(segment.replay_day+(sourceDay-segment.source_day)/segment.speed+1e-9);
 }
+export function profileClock(clock,profile){
+  const restart=clock?.restarts?.[profile?.handle];if(!restart)return clock;
+  const day=parts(restart.started_at,clock.zone).day-clock.start_day,source=sourceDayAt(clock,day);
+  const speed=[...clock.segments].reverse().find(s=>s.replay_day<=day)?.speed||1;
+  return {...clock,restarts:undefined,started_at:restart.started_at,start_day:clock.start_day+day,segments:[{replay_day:0,source_day:0,speed},...clock.segments.filter(s=>s.replay_day>day).map(s=>({...s,replay_day:s.replay_day-day,source_day:s.source_day-source}))]};
+}
+export function profileStatus(posts,profile,clock,now){
+  const own=posts.filter(p=>p.profile_handle===profile.handle),times=own.map(p=>dueAt(p,profile,clock));
+  const posted=times.filter(t=>t<=now).length,total=own.length;
+  const dates=own.map(p=>Date.parse(p.created_at)),first=dates.length?dates.reduce((a,b)=>Math.min(a,b),Infinity):0,last=dates.length?dates.reduce((a,b)=>Math.max(a,b),-Infinity):0;
+  return {total,posted,percent:total?Math.floor(posted/total*100):0,first,last,span:last-first,finished:!!clock&&total>0&&posted===total,ends:times.length?times.reduce((a,b)=>Math.max(a,b),-Infinity):Infinity,cycle:(clock?.restarts?.[profile.handle]?.cycle||1),started_at:profileClock(clock,profile)?.started_at};
+}
+export function restartProfile(clock,profile,now){
+  if(!clock)throw new Error('Start replay first.');
+  return {...clock,restarts:{...clock.restarts,[profile.handle]:{started_at:now,cycle:(clock.restarts?.[profile.handle]?.cycle||1)+1}}};
+}
 export function dueAt(post,profile,clock){
   if(!clock||!profile)return Infinity;
+  clock=profileClock(clock,profile);
   if(post.id===profile.first_post_id)return clock.started_at;
   const offset=Math.max(0,post.original_day-profile.first_day);
   const day=clock.start_day+replayDayFor(clock,offset);
