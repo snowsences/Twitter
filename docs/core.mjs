@@ -75,6 +75,7 @@ export function normalizeArchive(a,zone){
 export function mergePost(old,fresh){
   if(!old)return fresh;
   const full=old.text.length>fresh.text.length?old:fresh;
-  const media=fresh.media.map(m=>{const prior=old.media.find(o=>o.url===m.url&&o.type===m.type);return {...prior,...m,asset_key:m.asset_key||prior?.asset_key,poster_asset_key:m.poster_asset_key||prior?.poster_asset_key};});
-  return {...old,...fresh,text:full.text,possibly_truncated:full.possibly_truncated,media:media.length?media:old.media,quoted_post:fresh.quoted_post||old.quoted_post,type:old.type==='retweet'?'retweet':fresh.type,retweeted_by:fresh.retweeted_by||old.retweeted_by};
+  const mergeMedia=(older,newer)=>newer.map(m=>{const prior=older.find(o=>(o.url===m.url||o.source_url===m.url||o.url===m.source_url)&&o.type===m.type);return {...prior,...m,url:prior?.asset_key&&!m.asset_key?prior.url:m.url,poster_url:prior?.poster_asset_key&&!m.poster_asset_key?prior.poster_url:m.poster_url,asset_key:m.asset_key||prior?.asset_key,poster_asset_key:m.poster_asset_key||prior?.poster_asset_key};});
+  const media=mergeMedia(old.media,fresh.media);const quote=fresh.quoted_post?{...fresh.quoted_post,media:mergeMedia(old.quoted_post?.media||[],fresh.quoted_post.media||[])}:old.quoted_post;
+  return {...old,...fresh,text:full.text,possibly_truncated:full.possibly_truncated,media:media.length?media:old.media,quoted_post:quote,type:old.type==='retweet'?'retweet':fresh.type,retweeted_by:fresh.retweeted_by||old.retweeted_by};
 }

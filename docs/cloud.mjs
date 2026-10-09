@@ -1,0 +1,59 @@
+import * as DB from './db.mjs';
+import {firebaseConfig,ownerEmail,workerURL} from './cloud-config.mjs';
+import {fields,stateDelta,applyDelta,packPosts,digest,cloudImages,assetKeys} from './sync-core.mjs';
+import {mergePost} from './core.mjs';
+let sdk,auth,store,user,notify=()=>{},changed=async()=>{},subscriptions=[],flushing=false,pulling=Promise.resolve(),timer,deferredState=null;
+export let status={phase:'loading',message:'Connecting…',email:null,pending:0};
+const report=(phase,message)=>{status={...status,phase,message,email:user?.email||null};notify(status);};
+const ref=(...path)=>sdk.doc(store,'users',user.uid,...path);
+const clean=value=>JSON.parse(JSON.stringify(value));
+async function pending(){return await DB.getMeta('cloud-outbox')||{profiles:[],delta:{},generation:0};}
+async function showPending(){const box=await pending();status.pending=box.profiles.length+Object.keys(box.delta).length;notify(status);}
+async function applyRemoteState(remote){const local=await DB.load(),box=await pending();let state;try{state=applyDelta(remote,box.delta);}catch{state=remote;report('error','Playback changed on another device. Choose “Use cloud playback” in Settings.');}await DB.write({state:{...local.state,...state,reading_key:local.state.reading_key},remote:true});await changed();}
+async function fetchArchive(manifest){const posts=[];for(const id of manifest.chunks){const key='cloud-chunk:'+id;let payload=await DB.getMeta(key);if(!payload){const snap=await sdk.getDoc(ref('chunks',id));if(!snap.exists())throw new Error('An archive batch is missing from the cloud.');payload=snap.data().payload;if(await digest(payload)!==id)throw new Error('Cloud archive integrity check failed.');await DB.putMeta(key,payload);}posts.push(...JSON.parse(payload));}return posts;}
+async function receiveProfile(manifest){const box=await pending();if(box.profiles.includes(manifest.profile.handle))return;const versionKey='cloud-version:'+manifest.profile.handle;if(await DB.getMeta(versionKey)===manifest.version)return;await DB.replaceProfile(manifest.profile,await fetchArchive(manifest));await DB.putMeta(versionKey,manifest.version);await changed();}
+export async function init({onStatus,onData,modules}){notify=onStatus;changed=onData;const approved=await DB.getMeta('cloud-owner');
+  if(!navigator.onLine){report(approved===ownerEmail?'offline':'signed-out',approved===ownerEmail?'Offline · using saved data':'Connect to sign in');return;}
+  try{const base='https://www.gstatic.com/firebasejs/13.0.0/';const [app,a,f]=modules||await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-auth.js'),import(base+'firebase-firestore.js')]);sdk={...a,...f};const instance=app.initializeApp(firebaseConfig);auth=a.initializeAuth(instance,{persistence:[a.indexedDBLocalPersistence,a.browserLocalPersistence],popupRedirectResolver:a.browserPopupRedirectResolver});store=f.getFirestore(instance);
+    a.onAuthStateChanged(auth,async current=>{for(const stop of subscriptions)stop();subscriptions=[];user=current;
+      if(!user){report('signed-out','Sign in to your Twitter archive');return;}
+      if(user.email?.toLowerCase()!==ownerEmail||!user.emailVerified){await a.signOut(auth);report('signed-out','Only '+ownerEmail+' can access this app.');return;}
+      await DB.putMeta('cloud-owner',ownerEmail);report('syncing','Loading your cloud archives…');
+      try{const meta=await f.getDoc(ref('meta','settings')),local=await DB.load();if(meta.exists())await applyRemoteState(meta.data());else{const delta=stateDelta({},local.state),box=await pending();box.delta={...delta,...box.delta};await DB.putMeta('cloud-outbox',box);}
+        const all=await f.getDocs(f.collection(store,'users',user.uid,'profiles'));for(const doc of all.docs)await receiveProfile(doc.data());
+        subscriptions.push(f.onSnapshot(ref('meta','settings'),snap=>{if(snap.exists()&&!snap.metadata.hasPendingWrites){if(flushing)deferredState=snap.data();else pulling=pulling.then(()=>applyRemoteState(snap.data())).catch(err=>report('error',err.message));}},err=>report('error',err.message)));
+        subscriptions.push(f.onSnapshot(f.collection(store,'users',user.uid,'profiles'),snap=>{if(!snap.metadata.hasPendingWrites)pulling=pulling.then(async()=>{for(const change of snap.docChanges())if(change.type!=='removed')await receiveProfile(change.doc.data());}).catch(err=>report('error',err.message));},err=>report('error',err.message)));
+        report('ready','Synced with your account');await showPending();await flush();
+      }catch(err){report('error',friendly(err));}
+    });
+    window.addEventListener('online',()=>flush());window.addEventListener('offline',()=>report('offline','Offline · changes will sync when connected'));
+    timer=setInterval(()=>{if(user&&navigator.onLine&&!flushing)flush();},30000);
+  }catch(err){report(approved===ownerEmail?'offline':'error','Could not connect to Firebase. '+err.message);}
+}
+function friendly(err){if(/permission-denied/.test(err.code||''))return 'Firebase denied access. Publish the supplied Firestore rules, then reload.';if(/resource-exhausted/.test(err.code||''))return 'Firebase quota reached. Pending uploads are saved on this device; retry after the quota resets.';return err.message||'Sync failed. Retry in Settings.';}
+export async function login(){try{if(!auth)throw new Error('Reload while online to connect to Firebase.');await sdk.signInWithPopup(auth,new sdk.GoogleAuthProvider());}catch(err){report('signed-out',friendly(err));}}
+export async function logout(){if(flushing)throw new Error('Wait for the current upload request to finish before signing out.');await sdk.signOut(auth);await DB.putMeta('cloud-owner',null);}
+export function canUse(){return ['ready','syncing','offline'].includes(status.phase)||!!user;}
+export function signedIn(){return !!user;}
+export function uploading(){return flushing;}
+export async function localChanged(){await showPending();if(user&&navigator.onLine&&!flushing){clearTimeout(localChanged.timer);localChanged.timer=setTimeout(()=>flush(),300);}}
+export async function uploadExisting(){if(!user)throw new Error('Sign in first.');const local=await DB.load();await DB.queueProfiles(local.profiles.map(p=>p.handle));await localChanged();}
+export async function useCloudClock(){if(!user)return;const box=await pending();delete box.delta.clock;box.generation++;await DB.putMeta('cloud-outbox',box);const snap=await sdk.getDoc(ref('meta','settings'));if(snap.exists())await applyRemoteState(snap.data());report('ready','Using cloud playback');await flush();}
+async function uploadImage(key){const cached=await DB.getMeta('cloud-url:'+key);if(cached)return cached;const asset=await DB.getAsset(key);if(!asset?.blob)return null;if(asset.blob.size>8*1024*1024)throw new Error('An image exceeds the 8 MB upload limit. Use a smaller image archive; the remaining upload stays queued.');
+  const form=new FormData();form.append('file',asset.blob,'image');const response=await fetch(workerURL+'/upload',{method:'POST',headers:{Authorization:'Bearer '+await user.getIdToken()},body:form});const result=await response.json().catch(()=>({error:'The Worker did not return JSON. Paste the supplied Worker code and deploy it.'}));if(!response.ok||!result.url)throw new Error(result.error||'Image upload failed.');const parsed=new URL(result.url);if(parsed.protocol!=='https:'||parsed.hostname!=='res.cloudinary.com'||!parsed.pathname.startsWith('/myranker/'))throw new Error('Unexpected media URL from Worker.');await DB.putMeta('cloud-url:'+key,result.url);return result.url;}
+async function sendProfile(handle){let local=await DB.load(),profile=local.profiles.find(p=>p.handle===handle);if(!profile)return;let posts=local.posts.filter(p=>p.profile_handle===handle);const remote=await sdk.getDoc(ref('profiles',handle)),prior=remote.exists()?remote.data():null;
+  if(prior){const map=new Map((await fetchArchive(prior)).map(p=>[p.key,p]));for(const post of posts)map.set(post.key,mergePost(map.get(post.key),post));posts=[...map.values()];profile={...profile,first_day:prior.profile.first_day,first_post_id:prior.profile.first_post_id,first_created_at:prior.profile.first_created_at};await DB.replaceProfile(profile,posts);}
+  const urls={};const keys=assetKeys(profile,posts);for(let i=0;i<keys.length;i++){report('syncing',`@${handle}: image ${i+1} of ${keys.length}`);const url=await uploadImage(keys[i]);if(url)urls[keys[i]]=url;}
+  profile=cloudImages(profile,urls);posts=posts.map(p=>cloudImages(p,urls)).sort((a,b)=>a.key.localeCompare(b.key));const payloads=packPosts(posts),ids=[];
+  for(let i=0;i<payloads.length;i++){const payload=payloads[i],id=await digest(payload);ids.push(id);if(!await DB.getMeta('cloud-sent:'+id)){report('syncing',`@${handle}: tweet batch ${i+1} of ${payloads.length}`);await sdk.setDoc(ref('chunks',id),{payload});await DB.putMeta('cloud-sent:'+id,true);await DB.putMeta('cloud-chunk:'+id,payload);}}
+  const version=await digest(JSON.stringify({profile,chunks:ids}));await sdk.runTransaction(store,async tx=>{const actual=await tx.get(ref('profiles',handle));if((actual.exists()?actual.data().version:null)!==(prior?.version||null))throw new Error('This profile changed on another device. Retry sync to merge it.');tx.set(ref('profiles',handle),{profile,chunks:ids,version});});
+  await DB.replaceProfile(profile,posts);await DB.releaseAssets(urls);await DB.putMeta('cloud-version:'+handle,version);await changed();
+  // Old chunk documents can be shared by another in-flight upload. Retain them;
+  // never delete referenced cloud data during an import.
+}
+export async function flush(){if(flushing||!user||!navigator.onLine)return;flushing=true;try{await pulling;let box=await pending();if(!box.profiles.length&&!Object.keys(box.delta).length){await showPending();return;}report('syncing','Syncing…');
+    if(Object.keys(box.delta).length){const captured=box.delta,generation=box.generation;await sdk.runTransaction(store,async tx=>{const snap=await tx.get(ref('meta','settings'));tx.set(ref('meta','settings'),clean(applyDelta(snap.exists()?snap.data():{},captured)));});box=await pending();await DB.mutateMeta('cloud-outbox',current=>{for(const [key,value] of Object.entries(captured))if(JSON.stringify(current.delta[key])===JSON.stringify(value))delete current.delta[key];else if(current.delta[key])current.delta[key].before=value.after;return current;});}
+    box=await pending();for(const handle of [...box.profiles]){const generation=box.generation;await sendProfile(handle);box=await pending();await DB.mutateMeta('cloud-outbox',current=>{if(current.generation===generation)current.profiles=current.profiles.filter(h=>h!==handle);return current;});}
+    await showPending();report('ready',status.pending?'Changes waiting to sync':'Synced with your account');
+  }catch(err){await showPending();report('error',friendly(err));}finally{flushing=false;if(deferredState){const remote=deferredState;deferredState=null;await applyRemoteState(remote);}}
+}

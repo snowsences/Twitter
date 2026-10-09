@@ -11,13 +11,15 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
   Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.querySelectorAll('option')].find(o=>o.selected)?.value||this.querySelector('option')?.value||'';},set(value){for(const option of this.querySelectorAll('option'))option.selected=option.value===String(value);}});
   const modal=document.getElementById('modal');modal.showModal=()=>modal.setAttribute('open','');modal.close=()=>{modal.removeAttribute('open');modal.dispatchEvent(new dom.Event('close'));};
   globalThis.document=document;globalThis.location={hash:'#home'};globalThis.window={scrollTo(){},addEventListener(){},scrollY:0};
-  Object.defineProperty(globalThis,'navigator',{configurable:true,value:{onLine:true}});globalThis.requestAnimationFrame=fn=>fn();
+  Object.defineProperty(globalThis,'navigator',{configurable:true,value:{onLine:false}});globalThis.requestAnimationFrame=fn=>fn();
   const interval=globalThis.setInterval,timeout=globalThis.setTimeout;
   globalThis.setInterval=()=>0;globalThis.setTimeout=(fn,ms)=>{const timer=timeout(fn,ms);timer.unref();return timer;};
   try{
     const archives=['alice','bob'].map(handle=>normalizeArchive({schema:'x-profile-archive',schema_version:1,profile:{handle},posts:[{id:'1',text:'Politics today',created_at:'2010-01-01T10:00:00Z',author:{handle,display_name:handle},media:[]}]},'UTC'));
     await DB.write({profiles:archives.map(a=>a.profile),posts:archives.flatMap(a=>a.posts),state:{clock:newClock(Date.now()-1000,'UTC'),timezone:'UTC',bookmarks:[],muted_terms:[]}});
+    await DB.putMeta('cloud-owner','allenkevinc@gmail.com');
     await import('../docs/app.mjs');
+    await new Promise(resolve=>setImmediate(resolve));
     const btn=text=>[...document.querySelectorAll('button')].find(b=>b.textContent===text);
     const nav=name=>[...document.querySelectorAll('#desktop-nav button')].find(b=>b.textContent===name).onclick();
     const count=()=>document.querySelectorAll('article.tweet').length;

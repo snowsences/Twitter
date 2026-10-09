@@ -36,7 +36,7 @@ export function stageArchive(input,existing,zone,namespace){
 }
 export async function makeBackup(data,assets){
   const entries={},manifest={schema:'twitter-replay-backup',version:1,exported_at:new Date().toISOString(),profiles:data.profiles,posts:data.posts,state:data.state,assets:[]};
-  for(let i=0;i<assets.length;i++){const a=assets[i],path=`assets/${i}.bin`;entries[path]=new Uint8Array(await a.blob.arrayBuffer());manifest.assets.push({key:a.key,path,type:a.blob.type});}
+  for(let i=0;i<assets.length;i++){const a=assets[i];if(!a.blob)continue;const path=`assets/${i}.bin`;entries[path]=new Uint8Array(await a.blob.arrayBuffer());manifest.assets.push({key:a.key,path,type:a.blob.type});}
   entries['backup.json']=strToU8(JSON.stringify(manifest));return new Blob([zipSync(entries,{level:0})],{type:'application/zip'});
 }
 export function restoreBackup(input){const a=input.data;
