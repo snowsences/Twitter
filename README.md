@@ -41,3 +41,7 @@ Browser storage belongs to each site address. Export a full backup from the orig
 ## Cloud activation
 
 The Worker and Firestore rules have been published through their dashboards; see [SETUP.md](SETUP.md) for the active configuration. The Firebase web configuration is public configuration; Cloudinary credentials are Worker secrets. The Worker and database rules restrict access to allenkevinc@gmail.com. Cloudinary media uses URL-accessible delivery. Uploaded local originals are released to save space, with a bounded cache for recently viewed cloud images.
+
+## Likes
+
+Tap a tweet’s heart to like it. The heart fills red, and the tweet appears in the Likes tab. Tap again to remove it. Likes sync across devices and are included in backups. Existing saved bookmarks appear as likes. Likes respect muted terms and replay timing. The existing bookmarks storage field is retained for compatibility; captured X like counts are unchanged.

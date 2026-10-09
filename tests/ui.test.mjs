@@ -31,7 +31,15 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     nav('Search');assert.equal(count(),1);nav('Profiles');assert.match(document.getElementById('content').textContent,/0 posts available/);
     nav('Settings');btn('Edit').onclick();modal.querySelector('select').value='everyone';await submit();nav('Home');assert.equal(count(),0);
     nav('Settings');await btn('Remove').onclick();nav('Home');assert.equal(count(),2);
-    const bookmark=document.querySelector('.bookmark');await bookmark.onclick();assert.equal((await DB.load()).state.bookmarks.length,1);
+    const heart=document.querySelector('.like-button');const likedKey=document.querySelector('article').dataset.key;
+    await heart.onclick();assert.equal(heart.classList.contains('liked'),true);assert.equal(heart.getAttribute('aria-pressed'),'true');assert.deepEqual((await DB.load()).state.bookmarks,[likedKey]);
+    nav('Likes');assert.equal(count(),1);assert.equal(document.querySelector('article').dataset.key,likedKey);assert.equal(document.querySelector('.like-button').getAttribute('aria-label'),'Unlike post');
+    nav('Home');assert.equal(document.querySelector('article[data-key="'+likedKey+'"] .like-button').classList.contains('liked'),true);
+    nav('Likes');await document.querySelector('.like-button').onclick();assert.equal(count(),0);assert.match(document.getElementById('content').textContent,/favorite moments/);assert.deepEqual((await DB.load()).state.bookmarks,[]);
+    nav('Home');assert.equal(document.querySelector('.like-button').getAttribute('aria-pressed'),'false');await document.querySelector('.like-button').onclick();
+    nav('Settings');btn('Add muted term').onclick();modal.querySelector('input.field').value='politics';await submit();nav('Likes');assert.equal(count(),0);
+    nav('Settings');await btn('Remove').onclick();nav('Likes');assert.equal(count(),1);
+    assert.equal(document.querySelectorAll('#mobile-nav button').length,5);
     nav('Settings');const reset=btn('Reset playback…').onclick();const input=modal.querySelector('input'),confirm=btn('Confirm reset');
     assert.equal(confirm.disabled,true);input.value='reset twitter';input.oninput();assert.equal(confirm.disabled,true);input.value='RESET TWITTER';input.oninput();assert.equal(confirm.disabled,false);
     btn('Cancel').onclick();await reset;assert.equal((await DB.load()).state.muted_terms.length,0);
