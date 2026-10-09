@@ -26,13 +26,13 @@ JSON and ZIP imports support multiple files in one action. Incoming data is vali
 
 ZIPs must contain archive.json and optional referenced images. Missing images fall back to remote URLs when available. Videos show archived posters and a link to the original post. No credentials or hidden X API are used. Imported archives upload to your private Firestore data; image bytes upload to your Cloudinary environment after owner authorization.
 
-Export backup packages profiles, posts, bookmarks, muted terms, clock history, local image bytes and cloud links. It does not download the complete Cloudinary library. Keep original extension ZIPs as media backups. Restore replaces this device’s data after typing RESTORE TWITTER and queues cloud sync. Other cloud profiles are retained. See SETUP.md for Firebase rules and Worker activation.
+Export backup packages profiles, posts, bookmarks, muted terms, clock history, local image bytes and cloud links. It does not download the complete Cloudinary library. Keep original extension ZIPs as media backups. Restore replaces this device’s data after typing RESTORE TWITTER and queues cloud sync. Other cloud profiles are retained. See SETUP.md for the deployed cloud configuration.
 
 ## Development and hosting
 
 The deployed static files are in docs/. This repository is ready for GitHub Pages: in Settings → Pages, choose Deploy from a branch, main, and /docs, then Save. The app URL will be https://snowsences.github.io/Twitter/. The static app can also be served from another HTTPS static host. No application server or build step is required. fflate is bundled locally for ZIP reading/writing. Its MIT license is included.
 
-Run `npm test` for scheduler, import, ZIP, storage, sync and Worker checks. The managed environment had no supported browser-QA skill, so full Chrome install/offline rendering and visual device QA were not available. DOM-based checks cover the main UI and confirmation flows; they do not replace live browser validation.
+Run `npm test` for scheduler, import, ZIP, storage and sync checks. The managed environment had no supported browser-QA skill, so full Chrome install/offline rendering and visual device QA were not available. DOM-based checks cover the main UI and confirmation flows; they do not replace live browser validation.
 
 ## Moving from the original app
 
@@ -40,4 +40,4 @@ Browser storage belongs to each site address. Export a full backup from the orig
 
 ## Cloud activation
 
-Follow [SETUP.md](SETUP.md). The Firebase web configuration is public configuration; Cloudinary credentials are Worker secrets. The Worker and database rules restrict access to allenkevinc@gmail.com. Cloudinary media uses URL-accessible delivery. Uploaded local originals are released to save space, with a bounded cache for recently viewed cloud images.
+The Worker and Firestore rules have been published through their dashboards; see [SETUP.md](SETUP.md) for the active configuration. The Firebase web configuration is public configuration; Cloudinary credentials are Worker secrets. The Worker and database rules restrict access to allenkevinc@gmail.com. Cloudinary media uses URL-accessible delivery. Uploaded local originals are released to save space, with a bounded cache for recently viewed cloud images.

@@ -1,35 +1,18 @@
-# Activate Twitter cloud sync
+# Twitter cloud sync
 
 The app is configured for Firebase project `twitter-9a8b3`, Cloudinary environment `myranker`, owner `allenkevinc@gmail.com`, and Worker `https://twitter.allenkevinc.workers.dev`.
 
-## 1. Deploy the Worker module
+## Deployed services
 
-Cloudflare → Workers & Pages → twitter → Edit code. Replace the entire starter with `cloudflare/twitter-worker.mjs`, then Deploy. Keep these settings:
+The Worker code is deployed in Cloudflare → Workers & Pages → twitter. Firestore security rules are published in Firebase → twitter-9a8b3 → Firestore Database → Rules. Maintain these directly in their dashboards; their source copies were removed from this repository after publication.
 
-| Variable | Type | Value |
-| --- | --- | --- |
-| CLOUDINARY_API_KEY | Secret | Your Cloudinary API key |
-| CLOUDINARY_API_SECRET | Secret | Your Cloudinary API secret |
-| CLOUDINARY_CLOUD_NAME | Text | myranker |
-| FIREBASE_PROJECT_ID | Text | twitter-9a8b3 |
-| OWNER_EMAIL | Text | allenkevinc@gmail.com |
-| ALLOWED_ORIGIN | Text | https://snowsences.github.io |
-
-No service-account JSON, Firebase admin credential, Cloudinary unsigned preset, Cloudflare storage binding, or custom domain is required. Secrets must never be committed to this repository.
-
-Open https://twitter.allenkevinc.workers.dev/health. It should report `configured: true`. This checks configuration presence only; the real upload verifies credentials. The Worker permits only valid, unexpired Firebase tokens for your verified Google account. It proxies image uploads, verifies image signatures, accepts files up to 8 MB, and uses deterministic content hashes with overwriting disabled. Credentials remain on the Worker.
+The Worker uses CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET as secrets, plus CLOUDINARY_CLOUD_NAME, FIREBASE_PROJECT_ID, OWNER_EMAIL and ALLOWED_ORIGIN as text variables. Google sign-in uses the authorized domain snowsences.github.io.
 
 Cloudinary images use ordinary URL-accessible delivery. Firebase database access and upload authorization are restricted to you; media URLs themselves are not sign-in protected.
 
-## 2. Publish Firestore rules
+Optional storage optimization: Firestore → Indexes → Single field → Add exemption. Exempt collection chunks, field payload, and collection profiles, field chunks, from all index modes. The app reads these by document ID. firestore.indexes.json documents the equivalent configuration.
 
-Firebase Console → twitter-9a8b3 → Firestore Database → Rules. Replace the rules with `firestore.rules`, then Publish. Do not enable test mode.
-
-Google sign-in must be enabled. Authentication → Settings → Authorized domains must include `snowsences.github.io` (domain only).
-
-Optional storage optimization: Firestore → Indexes → Single field → Add exemption. Exempt collection `chunks`, field `payload`, from all index modes; exempt collection `profiles`, field `chunks`, from all index modes. The app reads these records by document ID, so it does not need those indexes. `firestore.indexes.json` contains the equivalent CLI configuration.
-
-## 3. Open the app
+## Open the app
 
 Enable GitHub Pages for main /docs if needed, then open https://snowsences.github.io/Twitter/. Reload once after updating so the new service worker activates. Sign in with allenkevinc@gmail.com.
 
@@ -50,4 +33,4 @@ Keep the app open during uploads. Settings shows image/batch progress and any er
 
 ## Validation
 
-Run `npm ci` then `npm test`. Automated tests cover replay dates, mutes, ZIP/backup validation, IndexedDB outbox atomicity, interrupted uploads, merge behavior, token signature verification, CORS and signed image requests. Cloud tests use mocked Firebase/Cloudinary endpoints. Actual Google sign-in and two-device uploads still require validation after deploying the Worker and Firestore rules. The managed environment did not have the supported browser-QA skill.
+Run `npm ci` then `npm test`. Automated tests cover replay dates, mutes, ZIP/backup validation, IndexedDB outbox atomicity, interrupted uploads, merge behavior. Cloud tests use mocked Firebase/Cloudinary endpoints. Actual Google sign-in and two-device uploads require live validation against the deployed services. The managed environment did not have the supported browser-QA skill.
