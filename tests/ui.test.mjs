@@ -8,7 +8,7 @@ import {normalizeArchive,newClock} from '../docs/core.mjs';
 test('live UI scopes, edits and removes mute rules; reset requires exact confirmation',async()=>{
   const {document,window:dom}=parseHTML(await readFile(new URL('../docs/index.html',import.meta.url),'utf8'));
   const proto=Object.getPrototypeOf(document.createElement('select'));
-  Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.querySelectorAll('option')].find(o=>o.selected)?.value||this.querySelector('option')?.value||'';},set(value){for(const option of this.querySelectorAll('option'))option.selected=option.value===String(value);}});
+  Object.defineProperty(proto,'value',{configurable:true,get(){return [...this.querySelectorAll('option')].find(o=>o.selected)?.value||this.querySelector('option')?.value||'';},set(value){for(const option of this.querySelectorAll('option'))option.removeAttribute('selected');[...this.querySelectorAll('option')].find(option=>option.value===String(value))?.setAttribute('selected','');}});
   const modal=document.getElementById('modal');modal.showModal=()=>{modal.open=true;modal.setAttribute('open','');};modal.close=()=>{modal.open=false;modal.removeAttribute('open');modal.dispatchEvent(new dom.Event('close'));};
   const canvasProto=Object.getPrototypeOf(document.createElement('canvas'));
   const ctx={measureText:s=>({width:s.length*13}),scale(){},fillRect(){},save(){},restore(){},beginPath(){},arc(){},clip(){},fillText(){},moveTo(){},lineTo(){},stroke(){}};
@@ -62,6 +62,12 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     await modal.querySelector('form').onsubmit({preventDefault(){}});
     const historical=(await DB.load()).state.clock;assert.equal(historical.mode,'historical');assert.equal(historical.restarts,undefined);assert.equal(historical.origin_day,archives[0].posts[0].original_day);assert.equal(count(),2);
     nav('Settings');assert.match(document.getElementById('content').textContent,/Shared historical timeline/);
+    btn('Reset playback…').onclick();const alignmentMode=modal.querySelector('[aria-label="Replay timeline"]');alignmentMode.value='balanced';alignmentMode.onchange();
+    assert.equal(modal.querySelector('.alignment-preview').hidden,false);assert.equal(modal.querySelectorAll('.alignment-preview tbody tr').length,2);assert.match(modal.textContent,/Average active accounts/);
+    const limit=modal.querySelector('[aria-label="Maximum activity shift"]');assert.equal(limit.value,'3');limit.value='1';limit.onchange();
+    assert.match(modal.querySelector('.alignment-preview').textContent,/Unchanged/);assert.equal(btn('Confirm reset').disabled,true);
+    const balanceTyped=modal.querySelector('[aria-label="Type RESET TWITTER to confirm"]');balanceTyped.value='RESET TWITTER';balanceTyped.oninput();await modal.querySelector('form').onsubmit({preventDefault(){}});
+    const balanced=(await DB.load()).state.clock;assert.equal(balanced.mode,'balanced');assert.deepEqual(balanced.shift_days,{alice:0,bob:0});assert.equal(count(),2);
     assert.equal((await DB.load()).state.muted_terms.length,0);
   }finally{globalThis.setInterval=interval;globalThis.setTimeout=timeout;}
 });

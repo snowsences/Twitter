@@ -13,14 +13,16 @@ export function wallTime(day,seconds,zone){
   return Math.min(...options);
 }
 export function newClock(now,zone){return {started_at:now,zone,start_day:parts(now,zone).day,segments:[{replay_day:0,source_day:0,speed:1}]};}
-export function newReplayClock(now,zone,posts,{mode='historical',origin_day}={}){
+export function newReplayClock(now,zone,posts,{mode='historical',origin_day,shift_days}={}){
   if(!posts.length)throw new Error('Import at least one archive first.');
-  if(!['historical','aligned'].includes(mode))throw new Error('Invalid replay mode');
+  if(!['historical','aligned','balanced'].includes(mode))throw new Error('Invalid replay mode');
   const clock={...newClock(now,zone),mode};if(mode==='aligned')return clock;
-  const earliest=posts.reduce((a,b)=>a.created_at<=b.created_at?a:b);
-  const first=posts.reduce((a,b)=>Math.min(a,b.original_day),Infinity),last=posts.reduce((a,b)=>Math.max(a,b.original_day),-Infinity);
+  if(mode==='balanced'){if(!shift_days||typeof shift_days!=='object'||Array.isArray(shift_days)||Object.entries(shift_days).some(([h,d])=>! /^[a-z0-9_]{1,15}$/.test(h)||!Number.isInteger(d)||Math.abs(d)>3653))throw new Error('Invalid activity shifts');clock.shift_days={...shift_days};}
+  const day=p=>p.original_day+(mode==='balanced'?(clock.shift_days[p.profile_handle]||0):0);
+  const earliest=posts.reduce((a,b)=>day(a)<day(b)||(day(a)===day(b)&&a.original_seconds<=b.original_seconds)?a:b);
+  const first=posts.reduce((a,b)=>Math.min(a,day(b)),Infinity),last=posts.reduce((a,b)=>Math.max(a,day(b)),-Infinity);
   const origin=origin_day??first;if(!Number.isInteger(origin)||origin<first||origin>last)throw new Error('Choose a starting date within your archives.');
-  return {...clock,origin_day:origin,first_post_key:origin===earliest.original_day?earliest.key:null,first_created_at:origin===earliest.original_day?earliest.created_at:null};
+  return {...clock,origin_day:origin,first_post_key:origin===day(earliest)?earliest.key:null,first_created_at:mode==='historical'&&origin===day(earliest)?earliest.created_at:null,...(mode==='balanced'?{first_source_seconds:origin===day(earliest)?earliest.original_seconds:null}:{})};
 }
 export function sourceDayAt(clock,replayDay){const s=[...clock.segments].reverse().find(s=>s.replay_day<=replayDay)||clock.segments[0];return s.source_day+(replayDay-s.replay_day)*s.speed;}
 export function setSpeed(clock,speed,now){
@@ -41,10 +43,10 @@ export function profileClock(clock,profile){
 }
 export function profileStatus(posts,profile,clock,now){
   const own=posts.filter(p=>p.profile_handle===profile.handle),times=own.map(p=>dueAt(p,profile,clock));
-  const local=profileClock(clock,profile),skipped=local?.mode==='historical'?own.filter(p=>p.original_day<local.origin_day).length:0;
+  const local=profileClock(clock,profile),shift=local?.mode==='balanced'?(local.shift_days?.[profile.handle]||0):0,skipped=['historical','balanced'].includes(local?.mode)?own.filter(p=>p.original_day+shift<local.origin_day).length:0;
   const posted=times.filter(t=>t<=now).length,total=own.length,playable=total-skipped,finite=times.filter(Number.isFinite);
   const dates=own.map(p=>Date.parse(p.created_at)),first=dates.length?dates.reduce((a,b)=>Math.min(a,b),Infinity):0,last=dates.length?dates.reduce((a,b)=>Math.max(a,b),-Infinity):0;
-  return {total,playable,skipped,posted,percent:playable?Math.floor(posted/playable*100):clock?100:0,first,last,span:last-first,finished:!!clock&&total>0&&posted===playable,appears:finite.length?finite.reduce((a,b)=>Math.min(a,b),Infinity):Infinity,ends:finite.length?finite.reduce((a,b)=>Math.max(a,b),-Infinity):Infinity,cycle:(clock?.restarts?.[profile.handle]?.cycle||1),started_at:local?.started_at};
+  return {total,playable,skipped,shift,posted,percent:playable?Math.floor(posted/playable*100):clock?100:0,first,last,span:last-first,finished:!!clock&&total>0&&posted===playable,appears:finite.length?finite.reduce((a,b)=>Math.min(a,b),Infinity):Infinity,ends:finite.length?finite.reduce((a,b)=>Math.max(a,b),-Infinity):Infinity,cycle:(clock?.restarts?.[profile.handle]?.cycle||1),started_at:local?.started_at};
 }
 export function restartProfile(clock,profile,now){
   if(!clock)throw new Error('Start replay first.');
@@ -53,10 +55,10 @@ export function restartProfile(clock,profile,now){
 export function dueAt(post,profile,clock){
   if(!clock||!profile)return Infinity;
   clock=profileClock(clock,profile);
-  const historical=clock.mode==='historical';
-  if(historical&&post.original_day<clock.origin_day)return Infinity;
-  if(historical?(post.key===clock.first_post_key||(clock.first_created_at&&post.created_at===clock.first_created_at)):post.id===profile.first_post_id)return clock.started_at;
-  const offset=Math.max(0,post.original_day-(historical?clock.origin_day:profile.first_day));
+  const historical=['historical','balanced'].includes(clock.mode),sourceDay=post.original_day+(clock.mode==='balanced'?(clock.shift_days?.[post.profile_handle]||0):0);
+  if(historical&&sourceDay<clock.origin_day)return Infinity;
+  if(historical?(post.key===clock.first_post_key||(clock.first_created_at&&post.created_at===clock.first_created_at)||(clock.mode==='balanced'&&sourceDay===clock.origin_day&&post.original_seconds===clock.first_source_seconds)):post.id===profile.first_post_id)return clock.started_at;
+  const offset=Math.max(0,sourceDay-(historical?clock.origin_day:profile.first_day));
   const day=clock.start_day+replayDayFor(clock,offset);
   const time=wallTime(day,post.original_seconds,clock.zone);
   // Only the first post overrides its time of day. Other day-zero posts wait
