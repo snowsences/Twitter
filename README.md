@@ -45,3 +45,7 @@ The Worker and Firestore rules have been published through their dashboards; see
 ## Likes
 
 Tap a tweet’s heart to like it. The heart fills red, and the tweet appears in the Likes tab. Tap again to remove it. Likes sync across devices and are included in backups. Existing saved bookmarks appear as likes. Likes respect muted terms and replay timing. The existing bookmarks storage field is retained for compatibility; captured X like counts are unchanged.
+
+## Share as image
+
+Each tweet has a Share button. It generates a PNG preview containing the author, text, repost attribution, photos/video posters, quoted content, and original/replay dates. Tap Share image to open the operating system’s file-sharing sheet where supported; Save image downloads the PNG on other browsers. Preparing a preview before the final Share tap preserves the user gesture required by mobile browsers. Long posts are split into multiple images without truncating text. Unavailable or CORS-blocked images are clearly marked in the preview. Image generation happens on the device and does not require Worker or Firestore changes.
