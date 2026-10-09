@@ -1,10 +1,13 @@
 # Twitter
 
-A static, installable Twitter replay reader. Firebase syncs your account’s archives and playback state across devices; IndexedDB keeps a local cache. Cloudinary hosts imported image files through an authenticated Cloudflare Worker. Import X Profile Archive JSON exports or its image ZIPs, then choose Start replay. Posts and reposts from all imported accounts share the feed, with each account's history measured relative to its own first record.
+A static, installable Twitter replay reader. Firebase syncs your account’s archives and playback state across devices; IndexedDB keeps a local cache. Cloudinary hosts imported image files through an authenticated Cloudflare Worker. Import X Profile Archive JSON exports or its image ZIPs, then choose Start replay. Posts and reposts from all imported accounts share the feed, with their original historical relationships preserved on one timeline.
 
 ## Playback rules
 
-- Every profile's first post appears exactly when playback starts, regardless of its original clock time.
+- Shared historical timeline is the default. Its origin is the earliest imported calendar day, or a later date selected before starting. Profiles appear and finish at their original offsets from that common date.
+- Posts before a chosen later starting date are excluded from playback. Later imports use the existing fixed origin; they never shift an active timeline.
+- The earliest post (including ties) appears when playback starts if starting at the beginning. All other posts, including other profiles’ first posts, preserve their original clock times.
+- Optional Everyone starts together mode retains the previous per-profile relative schedule. Existing clocks stay unchanged until an explicitly confirmed Reset; new starts and Reset default to the historical mode.
 - Other posts use their original clock time in the replay timezone (fixed when importing/starting).
 - Original calendar-day offsets are mapped to replay days. Default 1x preserves day spacing. Speed compresses day spacing, not hours/minutes.
 - Other posts mapped to day zero whose clock times have already passed wait for that time the following day.
@@ -14,7 +17,7 @@ A static, installable Twitter replay reader. Firebase syncs your account’s arc
 - Actual repost times are absent from extension exports. Repost playback uses the original post date and is labeled approximate in Settings and post details.
 - At a DST clock gap, a post uses the next valid wall time. Repeated DST hours use one deterministic occurrence.
 
-The app normalizes neither original gaps nor total archive duration. Do those edits in individual JSONs before importing if desired. When later importing older posts into a running account, its existing replay baseline stays fixed, to avoid hiding already-visible posts.
+The app normalizes neither original gaps nor total archive duration. Do those edits in individual JSONs before importing if desired. Later imports keep the running replay origin fixed. In Everyone starts together mode, each existing account also keeps its original baseline.
 
 ## Muted terms
 
@@ -50,4 +53,4 @@ Tap a tweet’s heart to like it. The heart fills red, and the tweet appears in 
 
 Each tweet has a Share button. It generates a PNG preview containing the author, text, repost attribution, photos/video posters, quoted content, and original/replay dates. Tap Share image to open the operating system’s file-sharing sheet where supported; Save image downloads the PNG on other browsers. Preparing a preview before the final Share tap preserves the user gesture required by mobile browsers. Long posts are split into multiple images without truncating text. Unavailable or CORS-blocked images are clearly marked in the preview. Image generation happens on the device and does not require Worker or Firestore changes.
 
-Profiles shows each archive’s original history length and date range, posts played / total, progress percentage, run number, and expected finish date at the selected day speed. Counts include muted posts. Finished profiles have a Restart button: that account begins again immediately, while other accounts retain their schedules. Posting clock times remain intact and all runs follow the global day speed. Restarting replaces that account’s current timeline; Likes stay saved and available. Restarts sync inside the playback clock and are included in backups. Global Reset clears all individual restarts.
+Profiles shows each archive’s original history length and date range, posts played / total, progress percentage, run number, and expected appearance/finish dates at the selected day speed. Upcoming profiles show “Appears in …”; archives entirely before a chosen starting date are marked finished. Progress excludes skipped records and states their count separately. Counts include muted posts. Finished profiles have a Restart button: that account begins again immediately, while other accounts retain their schedules. Posting clock times remain intact and all runs follow the global day speed. Restarting replaces that account’s current timeline; Likes stay saved and available. Restarts sync inside the playback clock and are included in backups. Global Reset clears all individual restarts.

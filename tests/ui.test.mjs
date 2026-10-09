@@ -54,8 +54,14 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     nav('Settings');btn('Add muted term').onclick();modal.querySelector('input.field').value='politics';await submit();nav('Likes');assert.equal(count(),0);
     nav('Settings');await btn('Remove').onclick();nav('Likes');assert.equal(count(),1);
     assert.equal(document.querySelectorAll('#mobile-nav button').length,5);
-    nav('Settings');const reset=btn('Reset playback…').onclick();const input=modal.querySelector('input'),confirm=btn('Confirm reset');
+    nav('Settings');const reset=btn('Reset playback…').onclick();const input=modal.querySelector('[aria-label="Type RESET TWITTER to confirm"]'),confirm=btn('Confirm reset');
     assert.equal(confirm.disabled,true);input.value='reset twitter';input.oninput();assert.equal(confirm.disabled,true);input.value='RESET TWITTER';input.oninput();assert.equal(confirm.disabled,false);
-    btn('Cancel').onclick();await reset;assert.equal((await DB.load()).state.muted_terms.length,0);
+    const clockBeforeCancel=(await DB.load()).state.clock;btn('Cancel').onclick();await reset;assert.deepEqual((await DB.load()).state.clock,clockBeforeCancel);
+    btn('Reset playback…').onclick();assert.equal(modal.querySelector('[aria-label="Replay timeline"]').value,'historical');
+    const typed=modal.querySelector('[aria-label="Type RESET TWITTER to confirm"]');typed.value='RESET TWITTER';typed.oninput();
+    await modal.querySelector('form').onsubmit({preventDefault(){}});
+    const historical=(await DB.load()).state.clock;assert.equal(historical.mode,'historical');assert.equal(historical.restarts,undefined);assert.equal(historical.origin_day,archives[0].posts[0].original_day);assert.equal(count(),2);
+    nav('Settings');assert.match(document.getElementById('content').textContent,/Shared historical timeline/);
+    assert.equal((await DB.load()).state.muted_terms.length,0);
   }finally{globalThis.setInterval=interval;globalThis.setTimeout=timeout;}
 });
