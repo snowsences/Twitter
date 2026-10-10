@@ -59,3 +59,7 @@ body{-webkit-tap-highlight-color:transparent}body.dialog-open #content .tweet-te
 
 /* Supplied tab artwork inherits the existing selected and unselected colors. */
 .nav-icon svg.icon{stroke:none}
+
+/* Broad, quiet tweet actions keep the tweet body's existing inset. */
+.post-actions .like-button,.post-actions .share-button{flex:1 1 0;min-width:0;width:auto;max-width:200px;border-radius:4px;background:rgba(255,255,255,.02)}
+.post-actions .like-ring{inset:auto;top:9px;left:calc(50% - 13px);width:26px;height:26px}

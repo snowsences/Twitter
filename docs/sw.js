@@ -1,5 +1,5 @@
-const CACHE='twitter-shell-v26-reader',MEDIA='twitter-media-v1',SETTINGS='twitter-device-settings';
-const SHELL=['./','./index.html','./style.css?v=26','./app.mjs?v=26','./motion.mjs?v=18','./nav-icons.mjs','./share.mjs','./core.mjs','./normalize.mjs','./timeline.mjs','./sync-core.mjs','./cloud.mjs','./cloud-config.mjs','./db.mjs','./files.mjs','./feed-window.mjs','./media.mjs','./activity.mjs','./archive-worker.mjs','./vendor/fflate.mjs','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
+const CACHE='twitter-shell-v27-reader',MEDIA='twitter-media-v1',SETTINGS='twitter-device-settings';
+const SHELL=['./','./index.html','./style.css?v=27','./app.mjs?v=27','./motion.mjs?v=18','./nav-icons.mjs','./share.mjs','./core.mjs','./normalize.mjs','./timeline.mjs','./sync-core.mjs','./cloud.mjs','./cloud-config.mjs','./db.mjs','./files.mjs','./feed-window.mjs','./media.mjs','./activity.mjs','./archive-worker.mjs','./vendor/fflate.mjs','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL.map(path=>new Request(new URL(path,self.registration.scope),{cache:'reload'})))).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('twitter-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 let pruning=Promise.resolve(),limitMB=100,epoch=0;
