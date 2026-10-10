@@ -32,7 +32,7 @@ export function stageArchive(input,existing,zone,namespace){
     const key=namespace+':'+path;item[assetField]=key;assets.push({key,blob:new Blob([bytes],{type})});delete item[pathField];
   }
   attach(normalized.profile.image,'local_path','asset_key');
-  for(const p of normalized.posts){for(const m of p.media){attach(m,'local_path','asset_key');attach(m,'poster_local_path','poster_asset_key');}for(const m of p.quoted_post?.media||[])attach(m,'local_path','asset_key');}
+  for(const p of normalized.posts){for(const m of p.media){attach(m,'local_path','asset_key');attach(m,'poster_local_path','poster_asset_key');}for(const m of p.quoted_post?.media||[]){attach(m,'local_path','asset_key');attach(m,'poster_local_path','poster_asset_key');}}
   const previous=existing.profiles.find(p=>p.handle===normalized.profile.handle);let profile=normalized.profile;
   if(previous){const earlier=existing.state?.clock||previous.first_created_at<=profile.first_created_at?previous:profile;
     profile={...previous,...profile,display_name:profile.display_name===profile.handle?previous.display_name:profile.display_name,image:profile.image?.asset_key?profile.image:previous.image?.asset_key?previous.image:profile.image||previous.image,first_created_at:earlier.first_created_at,first_post_id:earlier.first_post_id,first_day:earlier.first_day};}
@@ -61,3 +61,4 @@ export function restoreBackup(input){const a=input.data;
   const assets=a.assets.map(item=>{if(!safePath(item.path)||!input.entries[item.path]||typeof item.key!=='string'||!/^image\/(jpeg|png|webp|gif|avif)$/.test(item.type))throw new Error('Backup is missing an image');return {key:item.key,blob:new Blob([input.entries[item.path]],{type:item.type})};});
   return {profiles:a.profiles,posts:a.posts,state:a.state,assets};
 }
+

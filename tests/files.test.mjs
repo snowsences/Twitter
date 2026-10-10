@@ -20,3 +20,6 @@ test('folder-wrapped backup retains asset paths and ambiguous multiple archives 
   const restored=restoreBackup(await readFile(file(entries)));assert.equal(restored.assets.length,2);
   await assert.rejects(()=>readFile(file({'a/archive.json':strToU8(JSON.stringify(archive)),'b/archive.json':strToU8(JSON.stringify(archive))})),/multiple archives/);
 });
+
+
+test('video repost and quoted video URLs survive JSON/ZIP imports with poster files',()=>{const a=structuredClone(archive);a.posts[0].type='retweet';a.posts[0].author.handle='bob';a.posts[0].retweeted_by={handle:'alice'};const video={type:'video',url:'https://video.twimg.com/sample.mp4',poster_url:'https://pbs.twimg.com/poster.jpg',poster_local_path:'images/one.png'};a.posts[0].media=[video];a.posts[0].quoted_post={text:'Quote',media:[video]};const staged=stageArchive({data:a,entries:{'images/one.png':png,'images/avatar.png':png}},{profiles:[],posts:[]},'UTC','videos');for(const m of [staged.posts[0].media[0],staged.posts[0].quoted_post.media[0]]){assert.equal(m.type,'video');assert.equal(m.url,video.url);assert.equal(m.poster_asset_key,'videos:images/one.png');}assert.equal(staged.posts[0].profile_handle,'alice');assert.equal(staged.posts[0].author.handle,'bob');});
