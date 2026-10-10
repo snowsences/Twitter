@@ -9,3 +9,14 @@ test('ZIP traversal and absent JSON are rejected',async()=>{await assert.rejects
 test('oversized extracted entries rejected from directory before decompression',()=>{const bytes=zipSync({'archive.json':strToU8('{}')},{level:0}),view=new DataView(bytes.buffer);let i=0;while(view.getUint32(i,true)!==0x02014b50)i++;view.setUint32(i+24,500*1024*1024,true);assert.throws(()=>validateZip(bytes),/too large/);});
 
 test('plain JSON re-import keeps images after cloud URLs replace original URLs',async()=>{const {cloudImages}=await import('../docs/sync-core.mjs');const {mergePost}=await import('../docs/core.mjs');const original={text:'post',possibly_truncated:false,type:'post',media:[{type:'photo',url:'https://original/photo',asset_key:'image'}],quoted_post:{text:'quote',media:[{type:'photo',url:'https://original/quote',asset_key:'quote'}]}};const cloud=cloudImages(original,{image:'https://cloud/photo',quote:'https://cloud/quote'});const fresh=structuredClone(original);delete fresh.media[0].asset_key;delete fresh.quoted_post.media[0].asset_key;const merged=mergePost(cloud,fresh);assert.equal(merged.media[0].url,'https://cloud/photo');assert.equal(merged.media[0].asset_key,'image');assert.equal(merged.quoted_post.media[0].url,'https://cloud/quote');assert.equal(merged.quoted_post.media[0].asset_key,'quote');});
+
+test('Mac folder-wrapped ZIP resolves JSON and all image paths relative to manifest',async()=>{
+  const input=await readFile(file({'export/nested/archive.json':strToU8(JSON.stringify(archive)),'export/nested/images/avatar.png':png,'export/nested/images/one.png':png,'__MACOSX/export/nested/._archive.json':png,'export/nested/images/._one.png':png}));
+  const staged=stageArchive(input,{profiles:[],posts:[]},'UTC','wrapped');assert.equal(staged.assets.length,2);assert.deepEqual(staged.missing,[]);assert.equal(staged.posts[0].media[0].asset_key,'wrapped:images/one.png');assert(!Object.keys(input.entries).some(n=>n.includes('__MACOSX')||n.includes('._')));
+});
+test('folder-wrapped backup retains asset paths and ambiguous multiple archives are rejected',async()=>{
+  const staged=stageArchive({data:archive,entries:{'images/avatar.png':png,'images/one.png':png}},{profiles:[],posts:[]},'UTC','one');
+  const blob=await makeBackup({...staged,state:{clock:null,bookmarks:[]}},staged.assets);const {unzipSync}=await import('../docs/vendor/fflate.mjs');const raw=unzipSync(new Uint8Array(await blob.arrayBuffer()));const entries=Object.fromEntries(Object.entries(raw).map(([n,v])=>['wrapper/'+n,v]));
+  const restored=restoreBackup(await readFile(file(entries)));assert.equal(restored.assets.length,2);
+  await assert.rejects(()=>readFile(file({'a/archive.json':strToU8(JSON.stringify(archive)),'b/archive.json':strToU8(JSON.stringify(archive))})),/multiple archives/);
+});

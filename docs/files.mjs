@@ -13,9 +13,15 @@ const mime=name=>({'jpg':'image/jpeg','jpeg':'image/jpeg','png':'image/png','gif
 export function safePath(name){return typeof name==='string'&&!name.startsWith('/')&&!name.includes('\\')&&!name.split('/').includes('..')&&name.length<400;}
 export async function readFile(file){
   if(file.size>600*1024*1024)throw new Error('File exceeds 600 MB.');
-  if(file.name.toLowerCase().endsWith('.zip')){const bytes=new Uint8Array(await file.arrayBuffer());validateZip(bytes);const entries=unzipSync(bytes);
-    for(const name of Object.keys(entries))if(!safePath(name))throw new Error('Unsafe path in ZIP');
-    const json=entries['backup.json']||entries['archive.json'];if(!json)throw new Error('ZIP must contain archive.json or backup.json.');return {data:JSON.parse(strFromU8(json)),entries};}
+  if(file.name.toLowerCase().endsWith('.zip')){const bytes=new Uint8Array(await file.arrayBuffer());validateZip(bytes);const raw=unzipSync(bytes);
+    for(const name of Object.keys(raw))if(!safePath(name))throw new Error('Unsafe path in ZIP');
+    const usable=name=>!name.split('/').some(part=>part==='__MACOSX'||part.startsWith('._'));
+    const manifests=Object.keys(raw).filter(name=>usable(name)&&['archive.json','backup.json'].includes(name.split('/').at(-1)));
+    if(!manifests.length)throw new Error('ZIP must contain archive.json or backup.json, at the top level or inside a folder.');
+    if(manifests.length>1)throw new Error('ZIP contains multiple archives. Import each profile ZIP separately.');
+    const manifest=manifests[0],prefix=manifest.slice(0,manifest.lastIndexOf('/')+1),entries=Object.create(null);
+    for(const [name,value] of Object.entries(raw))if(usable(name)&&name.startsWith(prefix))entries[name.slice(prefix.length)]=value;
+    return {data:JSON.parse(strFromU8(raw[manifest])),entries};}
   return {data:JSON.parse(await file.text()),entries:{}};
 }
 export function stageArchive(input,existing,zone,namespace){
