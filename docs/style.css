@@ -56,3 +56,6 @@ body{-webkit-tap-highlight-color:transparent}body.dialog-open #content .tweet-te
 
 /* Account actions have separate descriptions and comfortable tap targets. */
 .account-sync-actions{display:grid;gap:20px;margin:24px 0}.account-sync-action{display:grid;gap:8px;justify-items:start}.account-sync-action .secondary{min-height:44px;border-radius:8px;text-align:left}.account-sync-copy p{margin:0;max-width:48ch}.account-sync-footer{border-top:1px solid var(--line);padding-top:8px;margin-top:24px}.account-sync-footer .text-button{min-height:44px;padding:12px 0}
+
+/* Supplied tab artwork inherits the existing selected and unselected colors. */
+.nav-icon svg.icon{stroke:none}
