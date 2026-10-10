@@ -53,3 +53,6 @@ body{-webkit-tap-highlight-color:transparent}body.dialog-open #content .tweet-te
 #mobile-nav button,#mobile-nav button.active,#mobile-nav button:hover,#mobile-nav button:active,#mobile-nav .nav-icon,#mobile-nav button.active .nav-icon,#mobile-nav button:hover .nav-icon,#mobile-nav button:active .nav-icon,#mobile-nav button:focus-visible .nav-icon{background:transparent!important}
 @media(prefers-reduced-motion:reduce){.media-grid img{transition:none}}
 #desktop-nav button,#desktop-nav button.active,#desktop-nav button:hover,#desktop-nav button:active{background:transparent!important}
+
+/* Account actions have separate descriptions and comfortable tap targets. */
+.account-sync-actions{display:grid;gap:20px;margin:24px 0}.account-sync-action{display:grid;gap:8px;justify-items:start}.account-sync-action .secondary{min-height:44px;border-radius:8px;text-align:left}.account-sync-copy p{margin:0;max-width:48ch}.account-sync-footer{border-top:1px solid var(--line);padding-top:8px;margin-top:24px}.account-sync-footer .text-button{min-height:44px;padding:12px 0}
