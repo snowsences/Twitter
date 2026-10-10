@@ -70,3 +70,7 @@ Playback sync compares nested field values independently of object key order, be
 ## Sync progress
 
 A status panel appears across tabs while imports are queued or syncing, and stays visible in Settings. It distinguishes active sync, queued work, offline waiting, stopped errors, and completed uploads. It shows the current profile, profile position in the sync batch, image preparation/upload progress, tweet batches, and remaining profile/settings counts. Already uploaded images count as ready when resuming. An upload error exposes Retry sync; image requests time out after 60 seconds instead of waiting indefinitely. Status updates refresh the panel without rebuilding Settings inputs on every image.
+
+## Captured repost event dates
+
+New scraper exports can include reposted_at. When available, replay and timeline placement use that timestamp while created_at retains the original author’s posting date. Missing event dates retain approximate original-post timing. Settings reports both counts; post details identify the timing source. Reimporting merges by existing profile/post key, preserves images, and retains captured event timing if a later import lacks it. A running clock remains fixed; review Reset playback to recompute the timeline after correcting an existing archive. Existing bookmarks and source tweet dates remain intact.
