@@ -27,7 +27,7 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     const nav=name=>[...document.querySelectorAll('#desktop-nav button')].find(b=>b.textContent===name).onclick();
     const count=()=>document.querySelectorAll('article.tweet').length;
     const submit=async()=>{const form=modal.querySelector('form');await form.onsubmit({preventDefault(){}});};
-    assert.equal(count(),2);
+    assert.equal(count(),2);assert.equal(document.getElementById('speed-chip'),null);assert.equal(document.querySelector('.byline time').textContent,'Jan 1 2010 10:00am');assert.equal(document.querySelector('.byline time').getAttribute('datetime'),'2010-01-01T10:00:00.000Z');
     assert.equal(btn('Post details'),undefined);
     const tweetText=document.querySelector('.tweet-text');
     tweetText.onclick({target:tweetText.querySelector('a')});assert.equal(modal.open,undefined);
@@ -53,7 +53,7 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     nav('Settings');btn('Edit').onclick();modal.querySelector('select').value='everyone';await submit();nav('Home');assert.equal(count(),0);
     nav('Settings');await btn('Remove').onclick();nav('Home');assert.equal(count(),2);
     const heart=document.querySelector('.like-button');const likedKey=document.querySelector('article').dataset.key;
-    await heart.onclick();assert.equal(heart.classList.contains('liked'),true);assert.equal(heart.getAttribute('aria-pressed'),'true');assert.deepEqual((await DB.load()).state.bookmarks,[likedKey]);
+    const stableTweet=heart.closest('article'),stableVideo=stableTweet.querySelector('video');await heart.onclick();assert.equal(document.querySelector('article[data-key="'+likedKey+'"]'),stableTweet);assert.equal(stableTweet.querySelector('video'),stableVideo);assert.equal(heart.classList.contains('liked'),true);assert.equal(heart.getAttribute('aria-pressed'),'true');assert.deepEqual((await DB.load()).state.bookmarks,[likedKey]);
     nav('Likes');assert.equal(count(),1);assert.equal(document.querySelector('article').dataset.key,likedKey);assert.equal(document.querySelector('.like-button').getAttribute('aria-label'),'Unlike post');
     nav('Home');assert.equal(document.querySelector('article[data-key="'+likedKey+'"] .like-button').classList.contains('liked'),true);
     nav('Likes');await document.querySelector('.like-button').onclick();assert.equal(count(),0);assert.match(document.getElementById('content').textContent,/favorite moments/);assert.deepEqual((await DB.load()).state.bookmarks,[]);

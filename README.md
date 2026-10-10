@@ -83,3 +83,8 @@ In Settings → Your archives, choose **Delete import** beside a profile and con
 Playable `media` entries with `type: "video"` and a direct HTTP(S) MP4 `url` use native inline video controls. Videos load on demand (`preload="none"`), never autoplay, and pause other players when started. Poster images retain existing import/cloud handling. Direct videos stream from their existing host without a Cloudinary upload and are not included in offline caching. Thumbnail-only entries retain the original-post fallback. Expired/unavailable links show a playback error.
 
 The document uses a no-referrer policy: X’s video CDN can reject playback requests carrying the GitHub Pages origin. Direct MP4 playback uses anonymous requests without an X login.
+
+
+Motion uses native Web Animations with no additional dependencies: tactile button presses, heart feedback, page entrances, dialog/backdrop transitions, thumbnail-to-viewer photo motion, incremental feed entrances/removals, toast transitions, and sync completion feedback. Unchanged tweet/video elements are retained during feed refreshes; pending new tweets stay behind the new-post button. Only added visible posts animate, with stagger capped at 150ms. Device Reduce Motion disables movement, and missing animation APIs fall back to immediate actions.
+
+Feed bylines always show the original post date and time (for example, `Dec 4 2026 7:05pm`) in the replay timezone, including reposts. Replay dates remain in post details. Playback speed is available only in Settings.
