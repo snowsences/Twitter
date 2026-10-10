@@ -86,13 +86,13 @@ export function safeURL(raw){try{const u=new URL(raw);return ['https:','http:'].
 export function handle(raw){if(typeof raw!=='string'||!/^[a-zA-Z0-9_]{1,15}$/.test(raw))throw new Error('Invalid profile handle');return raw.toLowerCase();}
 export function normalizeArchive(a,zone){
   if(a?.schema!=='x-profile-archive'||a.schema_version!==1||!Array.isArray(a.posts))throw new Error('Choose a JSON export from X Profile Archive (version 1).');
-  const owner=handle(a.profile?.handle);if(a.posts.length>150000)throw new Error('Import fewer than 150,000 posts per file.');
+  const owner=handle(a.profile?.handle);if(a.posts.length>150000)throw new Error('Import fewer than 150,000 tweets per file.');
   const unique=new Map();let name=owner;
   for(const raw of a.posts){
-    if(typeof raw?.id!=='string'||!/^\d{1,25}$/.test(raw.id)||typeof raw.text!=='string'||raw.text.length>200000)throw new Error('Invalid post record in archive. No changes were made.');
-    const created=Date.parse(raw.created_at);if(!Number.isFinite(created))throw new Error('An archived post has an invalid date.');
+    if(typeof raw?.id!=='string'||!/^\d{1,25}$/.test(raw.id)||typeof raw.text!=='string'||raw.text.length>200000)throw new Error('Invalid tweet record in archive. No changes were made.');
+    const created=Date.parse(raw.created_at);if(!Number.isFinite(created))throw new Error('An archived tweet has an invalid date.');
     const author=handle(raw.author?.handle||owner),isRepost=raw.type==='retweet'||!!raw.retweeted_by;
-    if(author!==owner&&!isRepost)throw new Error('A post from another account is missing repost attribution.');
+    if(author!==owner&&!isRepost)throw new Error('A tweet from another account is missing repost attribution.');
     if(raw.retweeted_by&&handle(raw.retweeted_by.handle)!==owner)throw new Error('Repost attribution does not match the archive profile.');
     const reposted=isRepost&&raw.reposted_at?Date.parse(raw.reposted_at):null;if(reposted!==null&&(!Number.isFinite(reposted)||reposted<created))throw new Error('Invalid repost event date.');
     const date=parts(reposted??created,zone),type=isRepost?'retweet':'post';
@@ -103,7 +103,7 @@ export function normalizeArchive(a,zone){
     unique.set(p.key,mergePost(unique.get(p.key),p));
   }
   const posts=[...unique.values()].sort((a,b)=>eventDate(a).localeCompare(eventDate(b))||a.id.localeCompare(b.id));
-  if(!posts.length)throw new Error('This archive contains no posts.');
+  if(!posts.length)throw new Error('This archive contains no tweets.');
   return {profile:{handle:owner,display_name:name,image:a.profile.image?{url:safeURL(a.profile.image.url),local_path:typeof a.profile.image.local_path==='string'?a.profile.image.local_path:null}:null,first_day:posts[0].original_day,first_post_id:posts[0].id,first_created_at:eventDate(posts[0]),imported_at:new Date().toISOString()},posts};
 }
 export function mergePost(old,fresh){
