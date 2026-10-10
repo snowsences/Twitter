@@ -81,3 +81,5 @@ In Settings → Your archives, choose **Delete import** beside a profile and con
 
 
 Playable `media` entries with `type: "video"` and a direct HTTP(S) MP4 `url` use native inline video controls. Videos load on demand (`preload="none"`), never autoplay, and pause other players when started. Poster images retain existing import/cloud handling. Direct videos stream from their existing host without a Cloudinary upload and are not included in offline caching. Thumbnail-only entries retain the original-post fallback. Expired/unavailable links show a playback error.
+
+The document uses a no-referrer policy: X’s video CDN can reject playback requests carrying the GitHub Pages origin. Direct MP4 playback uses anonymous requests without an X login.

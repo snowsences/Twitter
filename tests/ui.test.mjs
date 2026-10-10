@@ -28,7 +28,7 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     const count=()=>document.querySelectorAll('article.tweet').length;
     const submit=async()=>{const form=modal.querySelector('form');await form.onsubmit({preventDefault(){}});};
     assert.equal(count(),2);
-    const players=[...document.querySelectorAll('video')];assert.equal(players.length,2);assert.equal(players[0].getAttribute('preload'),'none');assert.equal(players[0].hasAttribute('controls'),true);assert.equal(players[0].hasAttribute('playsinline'),true);assert.equal(players[0].hasAttribute('autoplay'),false);let paused=false;players[1].pause=()=>paused=true;players[0].onplay();assert.equal(paused,true);players[0].onerror();assert.match(players[0].parentElement.textContent,/Video link is unavailable/);
+    assert.equal(document.querySelector('meta[name="referrer"]').content,'no-referrer');const players=[...document.querySelectorAll('video')];assert.equal(players.length,2);assert.equal(players[0].getAttribute('preload'),'none');assert.equal(players[0].hasAttribute('controls'),true);assert.equal(players[0].hasAttribute('playsinline'),true);assert.equal(players[0].hasAttribute('autoplay'),false);let paused=false;players[1].pause=()=>paused=true;players[0].onplay();assert.equal(paused,true);players[0].onerror();assert.match(players[0].parentElement.textContent,/Video link is unavailable/);
     let shared;let cancel=true;
     navigator.canShare=({files})=>files[0].type==='image/png';navigator.share=({files})=>{shared=files;return cancel?Promise.reject(new DOMException('Canceled','AbortError')):Promise.resolve();};
     await document.querySelector('.share-button').onclick();
