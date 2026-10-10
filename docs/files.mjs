@@ -11,9 +11,13 @@ export function validateZip(bytes){
 }
 const mime=name=>({'jpg':'image/jpeg','jpeg':'image/jpeg','png':'image/png','gif':'image/gif','webp':'image/webp','avif':'image/avif'})[name.split('.').at(-1).toLowerCase()]||null;
 export function safePath(name){return typeof name==='string'&&!name.startsWith('/')&&!name.includes('\\')&&!name.split('/').includes('..')&&name.length<400;}
-export async function readFile(file){
+export async function readFile(file,onProgress=()=>{}){
+  onProgress('reading');
   if(file.size>600*1024*1024)throw new Error('File exceeds 600 MB.');
-  if(file.name.toLowerCase().endsWith('.zip')){const bytes=new Uint8Array(await file.arrayBuffer());validateZip(bytes);const raw=unzipSync(bytes);
+  if(file.name.toLowerCase().endsWith('.zip')&&typeof Worker==='function'){
+    const bytes=await file.arrayBuffer();onProgress('extracting');return new Promise((resolve,reject)=>{const worker=new Worker(new URL('./archive-worker.mjs',import.meta.url),{type:'module'});worker.onmessage=event=>{worker.terminate();event.data.error?reject(new Error(event.data.error)):resolve(event.data);};worker.onerror=event=>{worker.terminate();reject(new Error(event.message||'Could not extract this archive. Reload and retry.'));};worker.postMessage(bytes,[bytes]);});
+  }
+  if(file.name.toLowerCase().endsWith('.zip')){const bytes=new Uint8Array(await file.arrayBuffer());validateZip(bytes);onProgress('extracting');const raw=unzipSync(bytes);
     for(const name of Object.keys(raw))if(!safePath(name))throw new Error('Unsafe path in ZIP');
     const usable=name=>!name.split('/').some(part=>part==='__MACOSX'||part.startsWith('._'));
     const manifests=Object.keys(raw).filter(name=>usable(name)&&['archive.json','backup.json'].includes(name.split('/').at(-1)));
@@ -37,9 +41,17 @@ export function stageArchive(input,existing,zone,namespace){
   if(previous){const earlier=existing.state?.clock||previous.first_created_at<=profile.first_created_at?previous:profile;
     profile={...previous,...profile,display_name:profile.display_name===profile.handle?previous.display_name:profile.display_name,image:profile.image?.asset_key?profile.image:previous.image?.asset_key?previous.image:profile.image||previous.image,first_created_at:earlier.first_created_at,first_post_id:earlier.first_post_id,first_day:earlier.first_day};}
   const oldPosts=new Map(existing.posts.map(p=>[p.key,p]));
-  const posts=normalized.posts.map(p=>mergePost(oldPosts.get(p.key),p));
-  return {profiles:[profile],posts,assets,missing,duplicates:posts.filter(p=>oldPosts.has(p.key)).length};
+  let datesChanged=0,updated=0,newPosts=0;
+  const posts=normalized.posts.map(p=>{const old=oldPosts.get(p.key),merged=mergePost(old,p);if(!old)newPosts++;else{if(old.created_at!==merged.created_at||old.reposted_at!==merged.reposted_at)datesChanged++;if(JSON.stringify(old)!==JSON.stringify(merged))updated++;}return merged;});
+  return {profiles:[profile],posts,assets,missing,duplicates:posts.filter(p=>oldPosts.has(p.key)).length,report:{handle:profile.handle,processed:posts.length,newPosts,merged:posts.length-newPosts,updated,datesChanged,imagesIncluded:assets.length,missingImages:missing.length}};
 }
+export function stageOriginalDates(input,existing){
+  const a=input.data;if(a?.schema!=='twitter-original-dates'||a.version!==1||!Array.isArray(a.posts)||a.posts.length>100000)throw new Error('Invalid original dates file.');
+  const originals=new Map();for(const p of a.posts){if(typeof p.key!=='string'||! /^[a-z0-9_]{1,15}:\d{1,25}$/.test(p.key)||!Number.isFinite(Date.parse(p.original_created_at))||(p.original_reposted_at&&!Number.isFinite(Date.parse(p.original_reposted_at))))throw new Error('Invalid original date record. No dates were changed.');if(originals.has(p.key))throw new Error('Duplicate original date record.');originals.set(p.key,p);}
+  const posts=existing.posts.filter(p=>originals.has(p.key)).map(p=>{const date=originals.get(p.key);return {...p,original_created_at:new Date(date.original_created_at).toISOString(),...(date.original_reposted_at?{original_reposted_at:new Date(date.original_reposted_at).toISOString()}:{})};});
+  return {posts,matched:posts.length,unmatched:originals.size-posts.length};
+}
+export function applyOriginalDateIndex(input,index=[]){const dates=new Map(index.map(p=>[p.key,p]));return {...input,data:{...input.data,posts:input.data.posts.map(p=>{const date=dates.get(String(input.data.profile.handle).replace(/^@/,'').toLowerCase()+':'+p.id);return date?{...p,original_created_at:date.original_created_at,...(date.original_reposted_at?{original_reposted_at:date.original_reposted_at}:{})}:p;})}};}
 export async function makeBackup(data,assets){
   const entries={},manifest={schema:'twitter-replay-backup',version:1,exported_at:new Date().toISOString(),profiles:data.profiles,posts:data.posts,state:data.state,assets:[]};
   for(let i=0;i<assets.length;i++){const a=assets[i];if(!a.blob)continue;const path=`assets/${i}.bin`;entries[path]=new Uint8Array(await a.blob.arrayBuffer());manifest.assets.push({key:a.key,path,type:a.blob.type});}

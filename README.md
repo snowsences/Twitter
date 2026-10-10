@@ -69,7 +69,7 @@ Playback sync compares nested field values independently of object key order, be
 
 ## Sync progress
 
-A status panel appears across tabs while imports are queued or syncing, and stays visible in Settings. It distinguishes active sync, queued work, offline waiting, stopped errors, and completed uploads. It shows the current profile, profile position in the sync batch, image preparation/upload progress, tweet batches, and remaining profile/settings counts. Already uploaded images count as ready when resuming. An upload error exposes Retry sync; image requests time out after 60 seconds instead of waiting indefinitely. Status updates refresh the panel without rebuilding Settings inputs on every image.
+Sync progress stays in Settings; reading screens never receive a layout-shifting sync banner. It distinguishes active sync, queued work, offline waiting, stopped errors, and completed uploads. It shows the current profile, profile position in the sync batch, image preparation/upload progress, tweet batches, and remaining profile/settings counts. Already uploaded images count as ready when resuming. An upload error exposes Retry sync; image requests time out after 60 seconds instead of waiting indefinitely. Status updates refresh the panel without rebuilding Settings inputs on every image.
 
 ## Captured repost event dates
 
@@ -85,6 +85,32 @@ Playable `media` entries with `type: "video"` and a direct HTTP(S) MP4 `url` use
 The document uses a no-referrer policy: X’s video CDN can reject playback requests carrying the GitHub Pages origin. Direct MP4 playback uses anonymous requests without an X login.
 
 
-Motion uses native Web Animations with no additional dependencies: tactile button presses, heart feedback, dialog/backdrop transitions, thumbnail-to-viewer photo motion, incremental feed entrances/removals, toast transitions, and sync details inside Settings. Tab switches do not translate the reading surface, and routine sync does not insert banners above the feed. Unchanged tweet/video elements are retained during feed refreshes; pending new tweets stay behind the new-post button. Only added visible posts animate, with stagger capped at 150ms. Device Reduce Motion disables movement, and missing animation APIs fall back to immediate actions.
+Motion uses native Web Animations with no additional dependencies: tactile button presses, heart feedback, dialog/backdrop transitions, thumbnail-to-viewer photo motion, incremental feed entrances/removals, toast transitions, and sync details inside Settings. Tab switches do not translate the reading surface, and routine sync does not insert banners above the feed. Unchanged tweet/video elements are retained during feed refreshes; pending new tweets stay behind the new-post button. Virtual feed rows swap without entrance animations. Device Reduce Motion disables movement, and missing animation APIs fall back to immediate actions.
 
 Feed bylines always show the original post date and time (for example, `Dec 4 2026 7:05pm`) in the replay timezone, including reposts. Replay dates remain in post details. Playback speed is available only in Settings.
+
+
+## Reader improvements (v21)
+
+- The feed mounts a measured window of cards with spacer heights, retains unchanged tweet/video nodes, and maintains scroll anchors when loading older posts. Media frames reserve their space before loading. Next-post timers replace per-second polling.
+- Image asset reads start near the viewport. Feed images use small Cloudinary/X derivatives; opening the photo viewer requests the original. Videos retain native controls, on-demand loading, and no autoplay.
+- Settings shows cached image bytes/count, local originals waiting for upload, and approximate total device storage. The device-specific image-cache limit offers Off, 25, 50, 100 (default), 250, or 500 MB. Clearing only the cloud image cache leaves posts, Likes, playback, and pending original uploads intact.
+- Likes update immediately and sync in the background. Routine remote settings updates do not reload all archive posts or reschedule the feed.
+- A catch-up divider marks posts older than the previous visit; a floating newest-post control appears when there are incoming posts or the reader scrolls away from the top. Visit and reading-position data stay local to each device.
+- Profile pages have Posts, Photos, and Videos filters. They only include released, unmuted posts, including reposts and quoted media.
+- Settings previews the next 30 days of scheduled activity, daily counts, active/arriving/finishing accounts, and the complete account timeline. Muted posts are excluded from the forecast. Forecasts use the current playback speed history.
+- Multi-file imports process one archive at a time. ZIP extraction runs in a module worker. Settings shows file progress and per-profile new/merged/updated posts, changed scheduling dates, included images, and missing image references. One invalid file does not discard other valid selected files.
+- Failed images remain queued with per-profile retry controls; already uploaded images are reused. Other profiles may finish even if one has failed images. The cloud manifest is published only when that profile's media and tweet batches are complete. Automatic periodic retries stop on error until manual retry or reconnect.
+- Tab bars have transparent active, hover, and pressed backgrounds; icon/label colors and geometry remain intact.
+
+### True original dates after normalization
+
+`created_at` and `reposted_at` remain the archive scheduling timestamps. Optional `original_created_at` and `original_reposted_at` hold genuine source dates. Bylines, post details, shared images, sync payloads, and backups preserve these original dates. Details separately show a normalized archive date when it differs. Original metadata does not change `original_day`, `original_seconds`, or the running replay clock.
+
+For previously normalized exports, import a metadata JSON through the normal Import archives button:
+
+```json
+{"schema":"twitter-original-dates","version":1,"posts":[{"key":"alice:123","original_created_at":"2007-02-20T18:00:00Z"}]}
+```
+
+Keys use the imported profile's lowercase handle and tweet ID, including for reposts. Metadata is applied to matching posts and retained on the current device for later imports. No reset or image reupload is required. Reimported profile exports can also carry the optional original-date fields directly. Retaining an older source date when an existing tweet's scheduling date changes provides compatibility with date-only normalized exports; explicit original-date metadata takes precedence.

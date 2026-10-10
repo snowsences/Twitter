@@ -18,6 +18,7 @@ export async function write({profiles=[],posts=[],assets=[],state,remote=false})
 }
 export async function getAsset(key){const db=await openDB(),tx=db.transaction('assets','readonly');return request(tx.objectStore('assets').get(key));}
 export async function allAssets(){const db=await openDB(),tx=db.transaction('assets','readonly');return request(tx.objectStore('assets').getAll());}
+export async function assetStats(){const db=await openDB(),tx=db.transaction('assets','readonly');return new Promise((resolve,reject)=>{let bytes=0,pending=0,linked=0;const r=tx.objectStore('assets').openCursor();r.onerror=()=>reject(r.error);r.onsuccess=()=>{const c=r.result;if(!c){resolve({bytes,pending,linked});return;}if(c.value.blob){bytes+=c.value.blob.size;pending++;}else if(c.value.url)linked++;c.continue();};});}
 export async function replaceAll(data){const prior=(await load()).state;const db=await openDB(),tx=db.transaction(['profiles','posts','assets','meta'],'readwrite'),complete=done(tx);
   for(const name of ['profiles','posts','assets'])tx.objectStore(name).clear();
   for(const p of data.profiles)tx.objectStore('profiles').put(p);for(const p of data.posts)tx.objectStore('posts').put(p);for(const a of data.assets)tx.objectStore('assets').put(a);tx.objectStore('meta').put(data.state,'state');tx.objectStore('meta').put({profiles:data.profiles.map(p=>p.handle),delta:stateDelta(prior,data.state),generation:Date.now()},'cloud-outbox');await complete;}
@@ -43,3 +44,4 @@ export async function deleteProfile(handle){
   if(box){box.profiles=box.profiles.filter(h=>h!==handle);box.generation++;meta.put(box,'cloud-outbox');}
   await complete;
 }
+
