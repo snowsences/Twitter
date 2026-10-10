@@ -74,3 +74,7 @@ A status panel appears across tabs while imports are queued or syncing, and stay
 ## Captured repost event dates
 
 New scraper exports can include reposted_at. When available, replay and timeline placement use that timestamp while created_at retains the original author’s posting date. Missing event dates retain approximate original-post timing. Settings reports both counts; post details identify the timing source. Reimporting merges by existing profile/post key, preserves images, and retains captured event timing if a later import lacks it. A running clock remains fixed; review Reset playback to recompute the timeline after correcting an existing archive. Existing bookmarks and source tweet dates remain intact.
+
+### Delete and replace an import
+
+In Settings → Your archives, choose **Delete import** beside a profile and confirm. This removes the merged profile archive locally and publishes a deletion marker to signed-in devices. Connect and sign in first; wait for an active upload to finish. Import a replacement ZIP afterward. Other profiles, playback and saved likes are preserved. Original ZIP files and already-hosted Cloudinary images are not deleted.

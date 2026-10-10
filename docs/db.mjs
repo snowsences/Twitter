@@ -1,4 +1,4 @@
-import {stateDelta,mergeDelta} from './sync-core.mjs';
+import {stateDelta,mergeDelta,assetKeys} from './sync-core.mjs';
 const request=req=>new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});
 const done=tx=>new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Storage transaction aborted'));});
 let opening;
@@ -30,3 +30,16 @@ export async function replaceProfile(profile,posts){const db=await openDB(),tx=d
 export async function mutateMeta(key,change){const db=await openDB(),tx=db.transaction('meta','readwrite'),complete=done(tx);const store=tx.objectStore('meta');const req=store.get(key);req.onsuccess=()=>store.put(change(req.result),key);await complete;}
 
 export async function releaseAssets(urls){const db=await openDB(),tx=db.transaction('assets','readwrite'),complete=done(tx);for(const [key,url] of Object.entries(urls))tx.objectStore('assets').put({key,url});await complete;}
+
+// Remove only assets that are no longer referenced by another imported profile.
+export async function deleteProfile(handle){
+  const db=await openDB(),tx=db.transaction(['profiles','posts','assets','meta'],'readwrite'),complete=done(tx);
+  const profiles=tx.objectStore('profiles'),posts=tx.objectStore('posts'),assets=tx.objectStore('assets'),meta=tx.objectStore('meta');
+  const [allProfiles,allPosts,box]=await Promise.all([request(profiles.getAll()),request(posts.getAll()),request(meta.get('cloud-outbox'))]);
+  const removed=allProfiles.find(p=>p.handle===handle),owned=allPosts.filter(p=>p.profile_handle===handle);
+  const retained=new Set(allProfiles.filter(p=>p.handle!==handle).flatMap(p=>assetKeys(p,allPosts.filter(post=>post.profile_handle===p.handle))));
+  for(const key of assetKeys(removed||{},owned))if(!retained.has(key)){assets.delete(key);meta.delete('cloud-url:'+key);}
+  profiles.delete(handle);for(const post of owned)posts.delete(post.key);meta.delete('cloud-version:'+handle);
+  if(box){box.profiles=box.profiles.filter(h=>h!==handle);box.generation++;meta.put(box,'cloud-outbox');}
+  await complete;
+}
