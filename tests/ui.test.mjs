@@ -55,7 +55,7 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     nav('Settings');await btn('Remove').onclick();nav('Likes');assert.equal(count(),1);
     assert.equal(document.querySelectorAll('#mobile-nav button').length,5);
     nav('Settings');const reset=btn('Reset playback…').onclick();const input=modal.querySelector('[aria-label="Type RESET TWITTER to confirm"]'),confirm=btn('Confirm reset');
-    assert.equal(confirm.disabled,true);input.value='reset twitter';input.oninput();assert.equal(confirm.disabled,true);input.value='RESET TWITTER';input.oninput();assert.equal(confirm.disabled,false);
+    assert.equal(modal.querySelectorAll('.timeline-active').length,2);assert.match(modal.textContent,/Timeline overview/);assert.equal(confirm.disabled,true);input.value='reset twitter';input.oninput();assert.equal(confirm.disabled,true);input.value='RESET TWITTER';input.oninput();assert.equal(confirm.disabled,false);
     const clockBeforeCancel=(await DB.load()).state.clock;btn('Cancel').onclick();await reset;assert.deepEqual((await DB.load()).state.clock,clockBeforeCancel);
     btn('Reset playback…').onclick();assert.equal(modal.querySelector('[aria-label="Replay timeline"]').value,'historical');
     const typed=modal.querySelector('[aria-label="Type RESET TWITTER to confirm"]');typed.value='RESET TWITTER';typed.oninput();
@@ -63,7 +63,8 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     const historical=(await DB.load()).state.clock;assert.equal(historical.mode,'historical');assert.equal(historical.restarts,undefined);assert.equal(historical.origin_day,archives[0].posts[0].original_day);assert.equal(count(),2);
     nav('Settings');assert.match(document.getElementById('content').textContent,/Shared historical timeline/);
     btn('Reset playback…').onclick();const alignmentMode=modal.querySelector('[aria-label="Replay timeline"]');alignmentMode.value='balanced';alignmentMode.onchange();
-    assert.equal(modal.querySelector('.alignment-preview').hidden,false);assert.equal(modal.querySelectorAll('.alignment-preview tbody tr').length,2);assert.match(modal.textContent,/Average active accounts/);
+    assert.equal(modal.querySelectorAll('.timeline-active').length,2);assert.equal(modal.querySelector('.alignment-preview').hidden,false);assert.equal(modal.querySelectorAll('.alignment-preview tbody tr').length,2);assert.match(modal.textContent,/Average active accounts/);
+    const startDate=modal.querySelector('[aria-label="Historical starting date"]');startDate.value='2010-01-02';startDate.oninput();assert.equal(modal.querySelectorAll('.timeline-active').length,0);assert.equal(btn('Confirm reset').disabled,true);
     const limit=modal.querySelector('[aria-label="Maximum activity shift"]');assert.equal(limit.value,'3');limit.value='1';limit.onchange();
     assert.match(modal.querySelector('.alignment-preview').textContent,/Unchanged/);assert.equal(btn('Confirm reset').disabled,true);
     const balanceTyped=modal.querySelector('[aria-label="Type RESET TWITTER to confirm"]');balanceTyped.value='RESET TWITTER';balanceTyped.oninput();await modal.querySelector('form').onsubmit({preventDefault(){}});

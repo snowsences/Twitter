@@ -1,5 +1,5 @@
-const CACHE='twitter-shell-v8-normalization',MEDIA='twitter-media-v1',MAX_MEDIA=100*1024*1024;
-const SHELL=['./','./index.html','./style.css','./app.mjs','./share.mjs','./core.mjs','./normalize.mjs','./sync-core.mjs','./cloud.mjs','./cloud-config.mjs','./db.mjs','./files.mjs','./vendor/fflate.mjs','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
+const CACHE='twitter-shell-v9-timeline',MEDIA='twitter-media-v1',MAX_MEDIA=100*1024*1024;
+const SHELL=['./','./index.html','./style.css','./app.mjs','./share.mjs','./core.mjs','./normalize.mjs','./timeline.mjs','./sync-core.mjs','./cloud.mjs','./cloud-config.mjs','./db.mjs','./files.mjs','./vendor/fflate.mjs','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('twitter-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 let pruning=Promise.resolve();
