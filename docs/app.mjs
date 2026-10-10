@@ -229,7 +229,7 @@ try{data=await DB.load();data.state.bookmarks ||= [];data.state.muted_terms ||= 
   render();if(view==='home'&&data.state.reading_key){requestAnimationFrame(()=>{const target=[...document.querySelectorAll('article.tweet')].find(el=>el.dataset.key===data.state.reading_key);target?.scrollIntoView({block:'start'});});}
   $('offline').hidden=navigator.onLine;
 }catch(err){$('content').append(empty('Could not open local storage','Check that your browser allows this site to save data, then reload. '+err.message));}
-if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+// Service-worker updates begin in index.html even if application startup fails.
 
 let cloudUIPhase='loading',cloudUIAllowed=false;
 Cloud.init({onStatus:status=>{const phaseChanged=cloudUIPhase!==status.phase;cloudUIPhase=status.phase;if(!loaded)return;if(status.phase==='error'&&phaseChanged)toast(status.message);const allowed=Cloud.canUse();if(allowed!==cloudUIAllowed||!allowed)render();updateSyncStatus();cloudUIAllowed=allowed;},onData:async()=>{if(!loaded)return;data=await DB.load();schedule();render();}});
