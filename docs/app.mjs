@@ -1,4 +1,4 @@
-import {enterSurface,likeFeedback,reconcileFeed,installDialogMotion,showToast,setBannerVisible} from './motion.mjs';
+import {likeFeedback,reconcileFeed,installDialogMotion,showToast} from './motion.mjs?v=18';
 import * as DB from './db.mjs';
 import * as Cloud from './cloud.mjs';
 import {alignActivity} from './normalize.mjs';
@@ -39,7 +39,7 @@ function render(navigation=false){updateSyncStatus();nav();sidebar();
   $('subtitle').textContent=view==='home'?dateText(Date.now(),{weekday:'long',month:'long',day:'numeric',year:'numeric'}):view==='profile'?'@'+selectedProfile:view==='search'?'Only posts that have appeared':view==='likes'?'Posts you’ve liked':'Your archives, on your time';
   const surface=view+':'+(selectedProfile||'');
   if(!navigation&&renderedSurface===surface&&$('feed')&&Cloud.canUse()&&data.state.clock&&data.profiles.length){drawFeed();updateNewbar();const description=document.querySelector('.profile-page-head p');if(description)description.textContent=released.filter(p=>p.profile_handle===selectedProfile).length.toLocaleString()+' posts available';return;}
-  renderedSurface=surface;$('content').replaceChildren();if(navigation)enterSurface($('content'));if(!Cloud.canUse()){const login=empty('Your Twitter, everywhere',Cloud.status.message,()=>Cloud.login(),'Sign in with Google');$('content').append(login);return;}if(view==='settings')renderSettings();else if(view==='profiles')renderProfiles();else renderTimeline();}
+  renderedSurface=surface;$('content').replaceChildren();if(!Cloud.canUse()){const login=empty('Your Twitter, everywhere',Cloud.status.message,()=>Cloud.login(),'Sign in with Google');$('content').append(login);return;}if(view==='settings')renderSettings();else if(view==='profiles')renderProfiles();else renderTimeline();}
 function empty(title,text,action=null,label='Import archives'){const el=e('section','empty'),graphic=e('div','empty-icon');graphic.append(icon('import'));el.append(graphic,e('h2','',title),e('p','',text));if(action)el.append(button(label,'primary',action));return el;}
 function startBar(){const el=e('div','startbar');el.append(e('h2','','Ready when you are'),e('p','',`Replay one shared historical timeline. People appear and finish when they originally did, preserving posting times in ${zone()}.`),button('Start replay','primary',startReplay));return el;}
 function renderTimeline(){const root=$('content');
@@ -127,11 +127,9 @@ function fillSyncStatus(box){
   if(s.pending){box.append(e('p','quiet',`${s.pendingProfiles?.length||0} profiles remaining${s.pendingSettings?' · '+s.pendingSettings+' settings changes':''}. ${active?'Keep the app open while uploading.':s.phase==='error'?'Uploads are stopped until this error is resolved.':'Completed uploads are saved; remaining work will resume.'}`));const queue=(s.pendingProfiles||[]).slice(0,6);if(queue.length)box.append(e('p','quiet','Queue: '+queue.map(h=>'@'+h).join(', ')+(s.pendingProfiles.length>6?' + '+(s.pendingProfiles.length-6)+' more':'')));}
   const retry=button(s.phase==='error'?'Retry sync':active?'Syncing…':'Sync now','secondary',()=>Cloud.flush());retry.disabled=s.active||!Cloud.signedIn()||s.phase==='offline';box.append(retry);
 }
-let syncCompletionTimer=null;
-function updateSyncStatus(){const banner=$('sync-banner');if(banner){const show=Cloud.canUse()&&(Cloud.status.pending||Cloud.status.phase==='error'||Cloud.status.phase==='syncing');
-  if(show){clearTimeout(syncCompletionTimer);syncCompletionTimer=null;banner.dataset.completed='';setBannerVisible(banner,true);fillSyncStatus(banner);}
-  else if(!banner.hidden&&Cloud.canUse()&&Cloud.status.phase==='ready'){if(banner.dataset.completed!=='true'){banner.dataset.completed='true';banner.replaceChildren(e('strong','sync-complete','✓ All uploads complete'));enterSurface(banner.firstElementChild);syncCompletionTimer=setTimeout(()=>setBannerVisible(banner,false),1200);}}
-  else{clearTimeout(syncCompletionTimer);syncCompletionTimer=null;setBannerVisible(banner,false);}}
+function updateSyncStatus(){
+  // Routine saves (likes, reading position, settings) stay out of the reading surface.
+  const banner=$('sync-banner');if(banner){banner.hidden=true;banner.replaceChildren();}
   for(const box of document.querySelectorAll('#content .sync-status'))fillSyncStatus(box);
 }
 function renderSettings(){const root=e('div','settings');const sync=e('section','section');sync.append(e('h2','','Account & sync'),e('p','',Cloud.status.email||'Cached account · offline'),syncStatusBox());sync.append(button('Upload existing local archives','text-button',()=>Cloud.uploadExisting().catch(err=>toast(err.message))),button('Use cloud playback','text-button',()=>Cloud.useCloudClock().catch(err=>toast(err.message))),button('Sign out','text-button',()=>Cloud.logout().catch(err=>toast(err.message))));sync.append(e('p','quiet','Archives sync through Firebase. Saved images upload to Cloudinary through your Worker. Imports on other devices appear automatically.'));root.append(sync);
@@ -217,7 +215,7 @@ $('import-files').onchange=async event=>{const files=[...event.target.files];if(
 };
 $('manage').onclick=()=>navigate('settings');$('search-icon').append(icon('search'));
 $('sidebar-search').onsubmit=ev=>{ev.preventDefault();query=new FormData(ev.target).get('q')||'';navigate('search');};
-window.addEventListener('hashchange',()=>{if(!loaded)return;const [name,handle]=location.hash.slice(1).split('/');if(['home','profiles','likes','search','settings','profile'].includes(name)&&(name!==view||handle!==selectedProfile)){view=name;selectedProfile=handle||null;offset=0;limit=50;feedHead=released[0]?.key;render(true);}});
+window.addEventListener('hashchange',()=>{if(!loaded)return;const [name,rawHandle]=location.hash.slice(1).split('/'),handle=rawHandle||null;if(['home','profiles','likes','search','settings','profile'].includes(name)&&(name!==view||handle!==selectedProfile)){view=name;selectedProfile=handle||null;offset=0;limit=50;feedHead=released[0]?.key;render(true);}});
 window.addEventListener('beforeinstallprompt',ev=>{ev.preventDefault();installPrompt=ev;if(view==='settings')render();});
 window.addEventListener('online',()=>$('offline').hidden=true);window.addEventListener('offline',()=>$('offline').hidden=false);
 let scrollTick=false;
