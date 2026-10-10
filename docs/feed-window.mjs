@@ -12,8 +12,8 @@ export function createFeedWindow(feed,{create,update,onRows=()=>{}}){
   function estimate(post){return 110+Math.ceil((post.text?.length||0)/55)*25+((post.media?.length||0)?280:0)+(post.quoted_post?160:0);}
   const rect=el=>el.getBoundingClientRect?.()||{top:0,bottom:0,height:0};
   function anchor(){return [...feed.querySelectorAll('article.tweet')].find(el=>rect(el).bottom>0);}
-  function render(){
-    if(destroyed)return;const oldAnchor=anchor(),oldTop=oldAnchor?rect(oldAnchor).top:null;const start=-rect(feed).top,viewport=globalThis.innerHeight||800,{first,last}=windowRange(prefix,start,viewport);
+  function render(preserve=true){
+    if(destroyed)return;const oldAnchor=preserve?anchor():null,oldTop=oldAnchor?rect(oldAnchor).top:null;const start=-rect(feed).top,viewport=globalThis.innerHeight||800,{first,last}=windowRange(prefix,start,viewport);
     const focused=document.activeElement?.closest?.('article.tweet');
     let lo=first,hi=last;const focusIndex=focused?posts.findIndex(p=>p.key===focused.dataset.key):-1;
     if(focusIndex>=0&&Math.abs(focusIndex-first)<60){lo=Math.min(lo,focusIndex);hi=Math.max(hi,focusIndex+1);}
@@ -36,7 +36,7 @@ export function createFeedWindow(feed,{create,update,onRows=()=>{}}){
   }):null;
   function queue(){if(frame!==null||destroyed)return;frame=true;const handle=requestAnimationFrame(()=>{frame=null;render();});if(frame!==null)frame=handle??true;}
   return {
-    set(next){const a=anchor(),before=a?rect(a).top:null;posts=next;rebuild();render();if(a?.isConnected&&before!==null){const difference=rect(a).top-before;if(Math.abs(difference)>.5)window.scrollBy?.(0,difference);}},
+    set(next,{preserve=true}={}){const a=preserve?anchor():null,before=a?rect(a).top:null;posts=next;rebuild();render(preserve);if(a?.isConnected&&before!==null){const difference=rect(a).top-before;if(Math.abs(difference)>.5)window.scrollBy?.(0,difference);}},
     render:queue,
     destroy(){destroyed=true;observer?.disconnect();if(frame!==null)globalThis.cancelAnimationFrame?.(frame);feed.querySelectorAll('video').forEach(v=>v.pause?.());},
     mounted:()=>feed.querySelectorAll('article.tweet').length,

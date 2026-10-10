@@ -90,7 +90,7 @@ Motion uses native Web Animations with no additional dependencies: tactile butto
 Feed bylines always show the original post date and time (for example, `Dec 4 2026 7:05pm`) in the replay timezone, including reposts. Replay dates remain in post details. Playback speed is available only in Settings.
 
 
-## Reader improvements (v21)
+## Reader improvements (v22)
 
 - The feed mounts a measured window of cards with spacer heights, retains unchanged tweet/video nodes, and maintains scroll anchors when loading older posts. Media frames reserve their space before loading. Next-post timers replace per-second polling.
 - Image asset reads start near the viewport. Feed images use small Cloudinary/X derivatives; opening the photo viewer requests the original. Videos retain native controls, on-demand loading, and no autoplay.
