@@ -18,7 +18,7 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
   const interval=globalThis.setInterval,timeout=globalThis.setTimeout;
   globalThis.setInterval=()=>0;globalThis.setTimeout=(fn,ms)=>{const timer=timeout(fn,ms);timer.unref();return timer;};
   try{
-    const archives=['alice','bob'].map(handle=>normalizeArchive({schema:'x-profile-archive',schema_version:1,profile:{handle},posts:[{id:'1',text:'Politics today',created_at:'2010-01-01T10:00:00Z',author:{handle,display_name:handle},media:[]}]},'UTC'));
+    const archives=['alice','bob'].map(handle=>normalizeArchive({schema:'x-profile-archive',schema_version:1,profile:{handle},posts:[{id:'1',text:'Politics today',created_at:'2010-01-01T10:00:00Z',author:{handle,display_name:handle},media:[{type:'video',url:'https://video.twimg.com/test/sample.mp4'}]}]},'UTC'));
     await DB.write({profiles:archives.map(a=>a.profile),posts:archives.flatMap(a=>a.posts),state:{clock:newClock(Date.now()-1000,'UTC'),timezone:'UTC',bookmarks:[],muted_terms:[]}});
     await DB.putMeta('cloud-owner','allenkevinc@gmail.com');
     await import('../docs/app.mjs');
@@ -28,6 +28,7 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     const count=()=>document.querySelectorAll('article.tweet').length;
     const submit=async()=>{const form=modal.querySelector('form');await form.onsubmit({preventDefault(){}});};
     assert.equal(count(),2);
+    const players=[...document.querySelectorAll('video')];assert.equal(players.length,2);assert.equal(players[0].getAttribute('preload'),'none');assert.equal(players[0].hasAttribute('controls'),true);assert.equal(players[0].hasAttribute('playsinline'),true);assert.equal(players[0].hasAttribute('autoplay'),false);let paused=false;players[1].pause=()=>paused=true;players[0].onplay();assert.equal(paused,true);players[0].onerror();assert.match(players[0].parentElement.textContent,/Video link is unavailable/);
     let shared;let cancel=true;
     navigator.canShare=({files})=>files[0].type==='image/png';navigator.share=({files})=>{shared=files;return cancel?Promise.reject(new DOMException('Canceled','AbortError')):Promise.resolve();};
     await document.querySelector('.share-button').onclick();
@@ -72,3 +73,4 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     assert.equal((await DB.load()).state.muted_terms.length,0);
   }finally{globalThis.setInterval=interval;globalThis.setTimeout=timeout;}
 });
+

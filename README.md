@@ -78,3 +78,6 @@ New scraper exports can include reposted_at. When available, replay and timeline
 ### Delete and replace an import
 
 In Settings → Your archives, choose **Delete import** beside a profile and confirm. This removes the merged profile archive locally and publishes a deletion marker to signed-in devices. Connect and sign in first; wait for an active upload to finish. Import a replacement ZIP afterward. Other profiles, playback and saved likes are preserved. Original ZIP files and already-hosted Cloudinary images are not deleted.
+
+
+Playable `media` entries with `type: "video"` and a direct HTTP(S) MP4 `url` use native inline video controls. Videos load on demand (`preload="none"`), never autoplay, and pause other players when started. Poster images retain existing import/cloud handling. Direct videos stream from their existing host without a Cloudinary upload and are not included in offline caching. Thumbnail-only entries retain the original-post fallback. Expired/unavailable links show a playback error.

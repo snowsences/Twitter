@@ -64,11 +64,15 @@ function tweet(post){const article=e('article','tweet');article.dataset.key=post
   const actions=e('div','post-actions');const heart=button('','like-button'+(data.state.bookmarks.includes(post.key)?' liked':''),()=>toggleLike(post.key,heart));heart.append(icon('likes'));heart.setAttribute('aria-label',data.state.bookmarks.includes(post.key)?'Unlike post':'Like post');heart.setAttribute('aria-pressed',String(data.state.bookmarks.includes(post.key)));const share=button('','share-button',()=>shareTweet(post));share.append(icon('share'));share.setAttribute('aria-label','Share post as image');share.title='Share as image';actions.append(heart,share,button('Post details','',()=>showDetails(post)));if(post.possibly_truncated)actions.append(e('span','','Text may be incomplete'));body.append(actions);row.append(body);article.append(row);return article;
 }
 function appendText(container,text){const re=/https?:\/\/[^\s<>]+/g;let end=0;for(const match of text.matchAll(re)){container.append(document.createTextNode(text.slice(end,match.index)));container.append(link(match[0],match[0]));end=match.index+match[0].length;}container.append(document.createTextNode(text.slice(end)));}
-function appendMedia(body,media){const items=media.filter(m=>m.type==='photo'||m.poster_asset_key||m.poster_url);if(!items.length)return;const grid=e('div','media-grid'+(items.length>1?' multiple':''));
-  for(const item of items.slice(0,4)){const frame=button('','',()=>{}),img=e('img');img.alt=item.alt||'Archived post image';img.loading='lazy';img.decoding='async';const key=item.asset_key||item.poster_asset_key,remote=item.type==='photo'?item.url:item.poster_url;
+function appendMedia(body,media){const items=media.filter(m=>m.type==='photo'||m.poster_asset_key||m.poster_url||(m.type==='video'&&safeURL(m.url)));if(!items.length)return;const grid=e('div','media-grid'+(items.length>1?' multiple':''));
+  for(const item of items.slice(0,4)){
+    if(item.type==='video'&&safeURL(item.url)){const frame=e('div','video-frame'),video=e('video','tweet-video');video.controls=true;video.setAttribute('controls','');video.setAttribute('playsinline','');video.preload='none';video.setAttribute('preload','none');video.src=safeURL(item.url);video.setAttribute('aria-label',item.alt||'Archived video');
+      const showPoster=url=>{if(url)video.poster=url;};if(item.poster_asset_key)assetURL(item.poster_asset_key).then(url=>showPoster(url||item.poster_url));else showPoster(item.poster_url);
+      video.onplay=()=>{for(const other of document.querySelectorAll('video'))if(other!==video)other.pause();};video.onerror=()=>{if(!frame.querySelector('.video-note'))frame.append(e('p','video-note','Video link is unavailable. Open the original post to watch.'));};frame.append(video);grid.append(frame);continue;}
+    const frame=button('','',()=>{}),img=e('img');img.alt=item.alt||'Archived post image';img.loading='lazy';img.decoding='async';const key=item.asset_key||item.poster_asset_key,remote=item.type==='photo'?item.url:item.poster_url;
     const show=url=>{if(!url){frame.className='unavailable';frame.textContent='Image unavailable';return;}img.src=url;frame.onclick=()=>lightbox(url,img.alt);};
     img.onerror=()=>{frame.className='unavailable';frame.textContent=navigator.onLine?'Image no longer available':'Image not saved for offline viewing';};frame.append(img);frame.setAttribute('aria-label','Open image');if(key)assetURL(key).then(url=>show(url||remote));else show(remote);grid.append(frame);
-  }body.append(grid);if(media.some(m=>m.type==='video'))body.append(e('p','video-note','Video preview only. Open the original post to watch.'));
+  }body.append(grid);if(media.some(m=>m.type==='video'&&!safeURL(m.url)))body.append(e('p','video-note','Video preview only. Open the original post to watch.'));
 }
 async function toggleLike(key,b){
   if(b.disabled)return;const previous=data.state.bookmarks,set=new Set(previous);set.has(key)?set.delete(key):set.add(key);data.state.bookmarks=[...set];b.disabled=true;paintLike(b,set.has(key));
@@ -217,3 +221,4 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catc
 
 let cloudUIPhase='loading',cloudUIAllowed=false;
 Cloud.init({onStatus:status=>{const phaseChanged=cloudUIPhase!==status.phase;cloudUIPhase=status.phase;if(!loaded)return;if(status.phase==='error'&&phaseChanged)toast(status.message);const allowed=Cloud.canUse();if(allowed!==cloudUIAllowed||!allowed)render();updateSyncStatus();cloudUIAllowed=allowed;},onData:async()=>{if(!loaded)return;data=await DB.load();schedule();render();}});
+
