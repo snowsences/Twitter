@@ -27,14 +27,14 @@ test('live UI scopes, edits and removes mute rules; reset requires exact confirm
     const nav=name=>[...document.querySelectorAll('#desktop-nav button')].find(b=>b.textContent===name).onclick();
     const count=()=>document.querySelectorAll('article.tweet').length;
     const submit=async()=>{const form=modal.querySelector('form');await form.onsubmit({preventDefault(){}});};
-    assert.equal(count(),2);assert.equal(document.getElementById('speed-chip'),null);assert.equal(document.querySelector('.byline time').textContent,'Jan 1 2010 10:00am');assert.equal(document.querySelector('.byline time').getAttribute('datetime'),'2010-01-01T10:00:00.000Z');
+    assert.equal(count(),2);assert.equal(document.getElementById('speed-chip'),null);assert.equal(document.querySelector('header.top'),null);assert.equal(document.getElementById('subtitle'),null);assert.equal(document.querySelector('.byline time').textContent,'Jan 1 2010 10:00am');assert.equal(document.querySelector('.byline time').getAttribute('datetime'),'2010-01-01T10:00:00.000Z');
     let surfaceAnimations=0;document.getElementById('content').animate=()=>{surfaceAnimations++;return {finished:Promise.resolve()};};
     for(const tab of ['Likes','Profiles','Search','Settings','Home']){nav(tab);const content=document.getElementById('content').firstElementChild;events.hashchange();assert.equal(document.getElementById('content').firstElementChild,content,'hash echo must not redraw '+tab);}
-    assert.equal(surfaceAnimations,0,'tab navigation must not animate the feed surface');
+    assert.equal(surfaceAnimations,0,'tab navigation must not animate the feed surface');assert.ok(document.querySelector('#mobile-nav button.active .nav-icon svg'));assert.equal(document.querySelectorAll('#mobile-nav .nav-icon').length,5);
     assert.equal(btn('Post details'),undefined);
     const tweetText=document.querySelector('.tweet-text');
     tweetText.onclick({target:tweetText.querySelector('a')});assert.equal(modal.open,undefined);
-    tweetText.onclick({target:tweetText});assert.equal(modal.open,true);assert.equal(document.getElementById('modal-title').textContent,'Post details');assert.match(modal.textContent,/Original date/);modal.close();
+    tweetText.onclick({target:tweetText});assert.equal(modal.open,true);assert.equal(document.body.classList.contains('dialog-open'),true);assert.equal(document.getElementById('modal-title').textContent,'Post details');assert.match(modal.textContent,/Original date/);modal.close();assert.equal(document.body.classList.contains('dialog-open'),false);
     let prevented=false;tweetText.onkeydown({target:tweetText,key:'Enter',preventDefault(){prevented=true;}});assert.equal(prevented,true);assert.equal(modal.open,true);modal.close();
     window.getSelection=()=>({toString:()=> 'Politics'});tweetText.onclick({target:tweetText});assert.equal(modal.open,false);delete window.getSelection;
     assert.equal(document.querySelector('meta[name="referrer"]').content,'no-referrer');const players=[...document.querySelectorAll('video')];assert.equal(players.length,2);assert.equal(players[0].getAttribute('preload'),'none');assert.equal(players[0].hasAttribute('controls'),true);assert.equal(players[0].hasAttribute('playsinline'),true);assert.equal(players[0].hasAttribute('autoplay'),false);let paused=false;players[1].pause=()=>paused=true;players[0].onplay();assert.equal(paused,true);players[0].onerror();assert.match(players[0].parentElement.textContent,/Video link is unavailable/);
