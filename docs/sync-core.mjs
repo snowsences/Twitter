@@ -1,5 +1,9 @@
 export const fields=['clock','timezone','bookmarks','muted_terms'];
-const same=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
+// Firestore can reorder map fields. Compare values rather than insertion order,
+// including nested speed segments, profile restarts, and activity shifts.
+function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonical(value[key])]));return value;}
+export const sameState=(a,b)=>JSON.stringify(canonical(a??null))===JSON.stringify(canonical(b??null));
+const same=sameState;
 export function stateDelta(before={},after={}){return Object.fromEntries(fields.filter(k=>!same(before[k],after[k])).map(k=>[k,{before:before[k]??null,after:after[k]??null}]));}
 export function mergeDelta(old={},fresh={}){const result={...old};for(const [key,value] of Object.entries(fresh))result[key]={before:old[key]?old[key].before:value.before,after:value.after};return result;}
 export function applyDelta(remote={},delta={}){
@@ -7,7 +11,7 @@ export function applyDelta(remote={},delta={}){
   for(const [field,{before,after}] of Object.entries(delta)){
     if(field==='bookmarks'){const previous=new Set(before||[]),next=new Set(after||[]),current=new Set(remote.bookmarks||[]);for(const x of previous)if(!next.has(x))current.delete(x);for(const x of next)if(!previous.has(x))current.add(x);result.bookmarks=[...current];}
     else if(field==='muted_terms'){const prev=new Map((before||[]).map(r=>[r.id,r])),next=new Map((after||[]).map(r=>[r.id,r])),current=new Map((remote.muted_terms||[]).map(r=>[r.id,r]));for(const id of prev.keys())if(!next.has(id))current.delete(id);for(const [id,rule] of next)if(!same(rule,prev.get(id)))current.set(id,rule);result.muted_terms=[...current.values()];}
-    else if(field==='clock'){if(!same(remote.clock,before)&&!same(remote.clock,after))throw new Error('Playback changed on another device. Sync before changing it again.');result.clock=after;}
+    else if(field==='clock'){if(!same(remote.clock,before)&&!same(remote.clock,after))throw new Error('Local and cloud playback differ. In Settings, choose “Use cloud playback” to resolve this and sync your other changes.');result.clock=after;}
     else result[field]=after;
   }
   return result;

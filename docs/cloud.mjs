@@ -1,6 +1,6 @@
 import * as DB from './db.mjs';
 import {firebaseConfig,ownerEmail,workerURL} from './cloud-config.mjs';
-import {fields,stateDelta,applyDelta,packPosts,digest,cloudImages,assetKeys} from './sync-core.mjs';
+import {fields,stateDelta,applyDelta,packPosts,digest,cloudImages,assetKeys,sameState} from './sync-core.mjs';
 import {mergePost} from './core.mjs';
 let sdk,auth,store,user,notify=()=>{},changed=async()=>{},subscriptions=[],flushing=false,pulling=Promise.resolve(),timer,deferredState=null;
 export let status={phase:'loading',message:'Connecting…',email:null,pending:0};
@@ -9,7 +9,7 @@ const ref=(...path)=>sdk.doc(store,'users',user.uid,...path);
 const clean=value=>JSON.parse(JSON.stringify(value));
 async function pending(){return await DB.getMeta('cloud-outbox')||{profiles:[],delta:{},generation:0};}
 async function showPending(){const box=await pending();status.pending=box.profiles.length+Object.keys(box.delta).length;notify(status);}
-async function applyRemoteState(remote){const local=await DB.load(),box=await pending();let state;try{state=applyDelta(remote,box.delta);}catch{state=remote;report('error','Playback changed on another device. Choose “Use cloud playback” in Settings.');}await DB.write({state:{...local.state,...state,reading_key:local.state.reading_key},remote:true});await changed();}
+async function applyRemoteState(remote){const local=await DB.load(),box=await pending();let state;try{state=applyDelta(remote,box.delta);}catch{state=remote;report('error','Local and cloud playback differ. Choose “Use cloud playback” in Settings to resolve this.');}await DB.write({state:{...local.state,...state,reading_key:local.state.reading_key},remote:true});await changed();}
 async function fetchArchive(manifest){const posts=[];for(const id of manifest.chunks){const key='cloud-chunk:'+id;let payload=await DB.getMeta(key);if(!payload){const snap=await sdk.getDoc(ref('chunks',id));if(!snap.exists())throw new Error('An archive batch is missing from the cloud.');payload=snap.data().payload;if(await digest(payload)!==id)throw new Error('Cloud archive integrity check failed.');await DB.putMeta(key,payload);}posts.push(...JSON.parse(payload));}return posts;}
 async function receiveProfile(manifest){const box=await pending();if(box.profiles.includes(manifest.profile.handle))return;const versionKey='cloud-version:'+manifest.profile.handle;if(await DB.getMeta(versionKey)===manifest.version)return;await DB.replaceProfile(manifest.profile,await fetchArchive(manifest));await DB.putMeta(versionKey,manifest.version);await changed();}
 export async function init({onStatus,onData,modules}){notify=onStatus;changed=onData;const approved=await DB.getMeta('cloud-owner');
@@ -52,7 +52,7 @@ async function sendProfile(handle){let local=await DB.load(),profile=local.profi
   // never delete referenced cloud data during an import.
 }
 export async function flush(){if(flushing||!user||!navigator.onLine)return;flushing=true;try{await pulling;let box=await pending();if(!box.profiles.length&&!Object.keys(box.delta).length){await showPending();return;}report('syncing','Syncing…');
-    if(Object.keys(box.delta).length){const captured=box.delta,generation=box.generation;await sdk.runTransaction(store,async tx=>{const snap=await tx.get(ref('meta','settings'));tx.set(ref('meta','settings'),clean(applyDelta(snap.exists()?snap.data():{},captured)));});box=await pending();await DB.mutateMeta('cloud-outbox',current=>{for(const [key,value] of Object.entries(captured))if(JSON.stringify(current.delta[key])===JSON.stringify(value))delete current.delta[key];else if(current.delta[key])current.delta[key].before=value.after;return current;});}
+    if(Object.keys(box.delta).length){const captured=box.delta,generation=box.generation;await sdk.runTransaction(store,async tx=>{const snap=await tx.get(ref('meta','settings'));tx.set(ref('meta','settings'),clean(applyDelta(snap.exists()?snap.data():{},captured)));});box=await pending();await DB.mutateMeta('cloud-outbox',current=>{for(const [key,value] of Object.entries(captured))if(sameState(current.delta[key],value))delete current.delta[key];else if(current.delta[key])current.delta[key].before=value.after;return current;});}
     box=await pending();for(const handle of [...box.profiles]){const generation=box.generation;await sendProfile(handle);box=await pending();await DB.mutateMeta('cloud-outbox',current=>{if(current.generation===generation)current.profiles=current.profiles.filter(h=>h!==handle);return current;});}
     await showPending();report('ready',status.pending?'Changes waiting to sync':'Synced with your account');
   }catch(err){await showPending();report('error',friendly(err));}finally{flushing=false;if(deferredState){const remote=deferredState;deferredState=null;await applyRemoteState(remote);}}

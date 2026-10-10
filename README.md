@@ -64,3 +64,5 @@ The preview shows original/adjusted date ranges, every shift, history span, and 
 ## Timeline overview
 
 Before playback begins, Home shows the complete imported timeline with one bar per profile. Start replay and Reset playback include the same chart, updating for historical, aligned activity, and everyone-starts-together modes. A starting-date marker separates included time from faded skipped time. Historical charts use calendar dates; everyone-starts-together uses elapsed years. Bars cover each archive’s first-to-last dated post, including reposts and muted posts; they do not imply continuous posting. The chart only previews metadata and never starts or resets playback by itself.
+
+Playback sync compares nested field values independently of object key order, because Firebase can reorder maps. A conflict message indicates a difference between local and cloud playback, not proof of a separate device. For actual conflicts, Settings → Use cloud playback discards only the pending playback edit and adopts the cloud clock; imports and other pending changes remain queued.

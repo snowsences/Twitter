@@ -28,6 +28,6 @@ test('profile restarts persist in the synced clock with conflict detection and g
   const a=archive('alice',1),before=newClock(start,'UTC'),after=restartProfile(before,a.profile,start+2*DAY);
   assert.equal(before.restarts,undefined);
   assert.deepEqual(applyDelta({clock:before},stateDelta({clock:before},{clock:after})).clock,after);
-  assert.throws(()=>applyDelta({clock:newClock(start+DAY,'UTC')},stateDelta({clock:before},{clock:after})),/another device/);
+  assert.throws(()=>applyDelta({clock:newClock(start+DAY,'UTC')},stateDelta({clock:before},{clock:after})),/Local and cloud playback differ/);
   assert.equal(newClock(start+3*DAY,'UTC').restarts,undefined);
 });
