@@ -36,7 +36,7 @@ export function createFeedWindow(feed,{create,update,onRows=()=>{}}){
   }):null;
   function queue(){if(frame!==null||destroyed)return;frame=true;const handle=requestAnimationFrame(()=>{frame=null;render();});if(frame!==null)frame=handle??true;}
   return {
-    set(next,{preserve=true}={}){const a=preserve?anchor():null,before=a?rect(a).top:null;posts=next;rebuild();render(preserve);if(a?.isConnected&&before!==null){const difference=rect(a).top-before;if(Math.abs(difference)>.5)window.scrollBy?.(0,difference);}},
+    set(next,{preserve=true}={}){const a=preserve?anchor():null,before=a?rect(a).top:null,oldIndex=a?posts.findIndex(p=>p.key===a.dataset.key):-1,oldOffset=oldIndex>=0?prefix[oldIndex]:0;posts=next;rebuild();if(a&&oldIndex>=0){const index=posts.findIndex(p=>p.key===a.dataset.key);if(index>=0){const delta=prefix[index]-oldOffset;if(Math.abs(delta)>.5)window.scrollBy?.(0,delta);}}render(false);if(a?.isConnected&&before!==null){const difference=rect(a).top-before;if(Math.abs(difference)>.5)window.scrollBy?.(0,difference);}},
     render:queue,
     destroy(){destroyed=true;observer?.disconnect();if(frame!==null)globalThis.cancelAnimationFrame?.(frame);feed.querySelectorAll('video').forEach(v=>v.pause?.());},
     mounted:()=>feed.querySelectorAll('article.tweet').length,

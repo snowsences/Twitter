@@ -13,6 +13,7 @@ import {readFile,stageArchive,stageOriginalDates,applyOriginalDateIndex,makeBack
 
 const paths={share:'M12 16V3m-5 5 5-5 5 5M4 13v8h16v-8',home:'M3 10 12 3l9 7v11h-6v-7H9v7H3Z',profiles:'M20 21v-2a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v2M12 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8',search:'M21 21l-5-5M18 10a8 8 0 1 0-16 0 8 8 0 0 0 16 0',settings:'M9 3 8 6 5 7l-3 2v6l3 2 3 1 1 3h6l1-3 3-1 3-2V9l-3-2-3-1-1-3ZM15.5 12a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0',likes:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z',repost:'M4 7h13l-3-3m3 3-3 3M20 17H7l3 3m-3-3 3-3M4 7v7m16 3v-7',import:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5'};
 const $=id=>document.getElementById(id);
+if('scrollRestoration' in history)history.scrollRestoration='manual';
 const e=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('class','icon');svg.setAttribute('aria-hidden','true');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',paths[name]);svg.append(path);return svg;}
 function button(text,cls,action){const b=e('button',cls,text);b.type='button';b.onclick=action;return b;}
@@ -58,9 +59,9 @@ function renderTimeline(){const root=$('content');
   const bar=e('div','newbar');bar.id='newbar';root.append(bar);const feed=e('div');feed.id='feed';root.append(feed);drawFeed();updateNewbar();
 }
 function renderSearchResults(){if(view!=='search')return;const feed=$('feed');if(feed)drawFeed();}
-function drawFeed(mode='quiet'){const feed=$('feed');if(!feed)return;const posts=filtered(),start=mode!=='new'&&offset===0&&['home','profile'].includes(view)&&feedHead?Math.max(0,posts.findIndex(p=>p.key===feedHead)):offset;
+function drawFeed(mode='quiet'){const feed=$('feed');if(!feed)return;const posts=filtered(),timeline=['home','profile'].includes(view),preserve=mode!=='new'&&(!timeline||window.scrollY>80);if(timeline){const added=feedHead?posts.findIndex(p=>p.key===feedHead):0;if(preserve&&added>0)limit+=added;offset=0;}const start=offset;
   if(!feedWindow)feedWindow=createFeedWindow(feed,{create:tweet,update:(row,post)=>paintLike(row.querySelector('.like-button'),data.state.bookmarks.includes(post.key)),onRows:rows=>{decorateCatchup(rows);trimAssetURLs();}});
-  feed.querySelectorAll('.empty,.more').forEach(el=>el.remove());feedWindow.set(posts.slice(start,start+limit),{preserve:mode!=='new'});
+  feed.querySelectorAll('.empty,.more').forEach(el=>el.remove());feedWindow.set(posts.slice(start,start+limit),{preserve});if(timeline)feedHead=posts[0]?.key||null;
   if(!posts.length){feed.append(empty(view==='likes'?'Your favorite moments':view==='search'?'No matching tweets':'A little quiet for now',view==='likes'?'Tap the heart on a tweet to save it here.':view==='search'?'Try another search. Future tweets remain hidden.':'Tweets will arrive at their scheduled times. Check back later.'));return;}
   if(start+limit<posts.length){const more=e('div','more');more.append(button('Load older tweets','',()=>{limit+=50;drawFeed();}));feed.append(more);}else feed.append(e('p','quiet more','You’re at the beginning of the available timeline.'));
 }
@@ -241,13 +242,13 @@ window.addEventListener('beforeinstallprompt',ev=>{ev.preventDefault();installPr
 window.addEventListener('online',()=>$('offline').hidden=true);window.addEventListener('offline',()=>$('offline').hidden=false);
 let scrollTick=false;
 window.addEventListener('scroll',()=>{feedWindow?.render();if(scrollTick||view!=='home')return;scrollTick=true;requestAnimationFrame(()=>{scrollTick=false;updateNewbar();const visible=[...document.querySelectorAll('article.tweet')].find(el=>!el.classList.contains('tweet-leaving')&&el.getBoundingClientRect().bottom>0);if(visible&&data.state.reading_key!==visible.dataset.key){data.state.reading_key=visible.dataset.key;data.state.last_seen_at=Date.now();queuePersist();}});},{passive:true});
-function armReleaseTimer(){clearTimeout(releaseTimer);if(!loaded||!data.state.clock)return;const now=Date.now(),cutoff=now-7*86400000;let refresh=nextRelease;for(const post of released)if(post.replay_at>cutoff)refresh=Math.min(refresh,post.replay_at+7*86400000);if(!Number.isFinite(refresh))return;releaseTimer=setTimeout(()=>{updateReleased();sidebar();if(view==='home'||view==='profile')updateNewbar();else if(view==='search'||view==='likes')drawFeed();else if(view==='profiles'||view==='settings')render();armReleaseTimer();},Math.min(2147483647,Math.max(50,refresh-now+20)));}
+function armReleaseTimer(){clearTimeout(releaseTimer);if(!loaded||!data.state.clock)return;const now=Date.now(),cutoff=now-7*86400000;let refresh=nextRelease;for(const post of released)if(post.replay_at>cutoff)refresh=Math.min(refresh,post.replay_at+7*86400000);if(!Number.isFinite(refresh))return;releaseTimer=setTimeout(()=>{updateReleased();sidebar();if(view==='home'||view==='profile'){drawFeed();updateNewbar();}else if(view==='search'||view==='likes')drawFeed();else if(view==='profiles'||view==='settings')render();armReleaseTimer();},Math.min(2147483647,Math.max(50,refresh-now+20)));}
 window.addEventListener('pagehide',()=>{if(loaded&&view==='home'){data.state.last_seen_at=Date.now();DB.write({state:data.state}).catch(()=>{});}});
 window.addEventListener('resize',()=>feedWindow?.render());
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&loaded){updateReleased();updateNewbar();armReleaseTimer();}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&loaded){updateReleased();sidebar();if($('feed'))drawFeed();updateNewbar();armReleaseTimer();}});
 try{data=await DB.load();visitSeenAt=data.state.last_seen_at||null;data.state.bookmarks ||= [];data.state.muted_terms ||= [];data.state.timezone ||= Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';schedule();loaded=true;const [name,handle]=location.hash.slice(1).split('/');if(['home','profiles','likes','search','settings','profile'].includes(name)){view=name;selectedProfile=handle||null;}
-  feedHead=released[0]?.key||null;if(visitSeenAt===null){data.state.last_seen_at=Date.now();queuePersist();}if(view==='home'&&data.state.reading_key){const i=released.findIndex(p=>p.key===data.state.reading_key);if(i>=0){offset=Math.max(0,i-3);feedHead=data.state.reading_key;}}
-  if(view==='home'){data.state.last_seen_at=Date.now();queuePersist();}render();armReleaseTimer();if(view==='home'&&data.state.reading_key){requestAnimationFrame(()=>{const target=[...document.querySelectorAll('article.tweet')].find(el=>el.dataset.key===data.state.reading_key);target?.scrollIntoView({block:'start'});});}
+  feedHead=released[0]?.key||null;if(visitSeenAt===null){data.state.last_seen_at=Date.now();queuePersist();}
+  if(view==='home'){data.state.last_seen_at=Date.now();queuePersist();window.scrollTo({top:0,behavior:'instant'});}render();armReleaseTimer();
   $('offline').hidden=navigator.onLine;
 }catch(err){$('content').append(empty('Could not open local storage','Check that your browser allows this site to save data, then reload. '+err.message));}
 // Service-worker updates begin in index.html even if application startup fails.
