@@ -66,3 +66,10 @@ body{-webkit-tap-highlight-color:transparent}body.dialog-open #content .tweet-te
 
 /* Compact mobile navigation keeps full touch targets and accessible names. */
 @media(max-width:600px){#mobile-nav button>span:not(.nav-icon){display:none}#mobile-nav button{gap:0;min-height:44px}main{padding-bottom:calc(67px + env(safe-area-inset-bottom))}}
+
+/* Keep content clear of system UI if the browser overlays its status bar. */
+:root{--status-inset:env(safe-area-inset-top,0px)}
+html{scroll-padding-top:var(--status-inset)}
+main{padding-top:var(--status-inset)}
+body:before{content:'';position:fixed;inset:0 0 auto;height:var(--status-inset);background:#060e18;z-index:20;pointer-events:none}
+.newbar{top:calc(8px + var(--status-inset))}
